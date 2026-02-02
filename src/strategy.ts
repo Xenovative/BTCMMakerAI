@@ -338,6 +338,11 @@ export class Strategy {
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
 
+    if (price >= 98) {
+      console.log(`[AI] 價格過高 (${price.toFixed(1)}¢) 不買`);
+      return null;
+    }
+
     return {
       action: 'BUY',
       tokenId,
@@ -447,6 +452,7 @@ export class Strategy {
       const existing = positions.get(upTokenId)?.size ?? 0;
       const remaining = Math.max(0, config.MAX_POSITION_SIZE - existing);
       if (remaining <= 0) return null;
+      if (upPrice >= 98) return null;
       return {
         action: 'BUY',
         tokenId: upTokenId,
@@ -463,6 +469,7 @@ export class Strategy {
       const existing = positions.get(downTokenId)?.size ?? 0;
       const remaining = Math.max(0, config.MAX_POSITION_SIZE - existing);
       if (remaining <= 0) return null;
+      if (downPrice >= 98) return null;
       return {
         action: 'BUY',
         tokenId: downTokenId,
