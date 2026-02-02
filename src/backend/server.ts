@@ -302,10 +302,20 @@ async function startBot() {
   if (botRunning) return;
 
   console.log('🚀 Starting bot...');
-  
-  // 重置購買鎖
-  lastBoughtMarketId = null;
-  buyingInProgress = false;
+  botRunning = true;
+  // Connect live price feed
+  try {
+    livePriceFeed.connect();
+  } catch (e) {
+    console.warn('[WS] Failed to start price feed', e);
+  }
+
+  const loop = async () => {
+    if (!botRunning) return;
+    await tick();
+    setTimeout(loop, config.POLL_INTERVAL_MS);
+  };
+  loop();
 
   // Sync server time
   await fetcher.syncServerTime();
