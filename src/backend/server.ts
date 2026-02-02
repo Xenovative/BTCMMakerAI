@@ -157,14 +157,19 @@ async function tick() {
         strategy.setLivePrices(updatedLivePrices);
 
         // Update live price vars for broadcast
-        liveUp = updatedLivePrices[state.upTokenId] ?? state.upPrice;
-        liveDown = updatedLivePrices[state.downTokenId] ?? state.downPrice;
-        liveCurrentUp = state.currentUpTokenId ? (updatedLivePrices[state.currentUpTokenId] ?? state.currentUpPrice) : state.currentUpPrice;
-        liveCurrentDown = state.currentDownTokenId ? (updatedLivePrices[state.currentDownTokenId] ?? state.currentDownPrice) : state.currentDownPrice;
-        console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f (from feed: %s/%s)', 
+        const wsUp = updatedLivePrices[state.upTokenId];
+        const wsDown = updatedLivePrices[state.downTokenId];
+        const wsCurUp = state.currentUpTokenId ? updatedLivePrices[state.currentUpTokenId] : undefined;
+        const wsCurDown = state.currentDownTokenId ? updatedLivePrices[state.currentDownTokenId] : undefined;
+
+        liveUp = wsUp ?? upMid ?? state.upPrice;
+        liveDown = wsDown ?? downMid ?? state.downPrice;
+        liveCurrentUp = state.currentUpTokenId ? (wsCurUp ?? (currentEnabled ? getMid(currentUpOrderBook) : null) ?? state.currentUpPrice) : state.currentUpPrice;
+        liveCurrentDown = state.currentDownTokenId ? (wsCurDown ?? (currentEnabled ? getMid(currentDownOrderBook) : null) ?? state.currentDownPrice) : state.currentDownPrice;
+        console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f (source up=%s down=%s)', 
           liveUp, liveDown, 
-          updatedLivePrices[state.upTokenId] ? 'WS' : 'API',
-          updatedLivePrices[state.downTokenId] ? 'WS' : 'API');
+          wsUp != null ? 'WS' : (upMid != null ? 'MID' : 'API'),
+          wsDown != null ? 'WS' : (downMid != null ? 'MID' : 'API'));
 
         // Pre-compute AI analyses for both scopes
         strategy.refreshAIAnalyses(state, positions);
