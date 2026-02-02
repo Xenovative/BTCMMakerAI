@@ -7,7 +7,7 @@ import WebSocket from 'ws';
  */
 export class LivePriceFeed {
   private ws: WebSocket | null = null;
-  private readonly url = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
+  private readonly url = 'wss://ws-subscriptions-clob.polymarket.com/ws/book';
   private connected = false;
   private pendingTokens: Set<string> = new Set();
   private prices: Record<string, number> = {}; // tokenId -> price in cents
@@ -52,7 +52,7 @@ export class LivePriceFeed {
     if (!this.connected || !this.ws) return;
 
     const payload: any = {
-      type: 'market',
+      type: 'book',
       assets_ids: tokenIds,
     };
 
@@ -64,17 +64,22 @@ export class LivePriceFeed {
   }
 
   private handleMessage(msg: any): void {
-    // Market channel messages: expect bids/asks or mid_price, keyed by token/asset id
+    // Book channel messages: expect bids/asks, keyed by token/asset id
     const tokenId = msg?.product_id || msg?.token_id || msg?.tokenId || msg?.asset_id;
     if (!tokenId) return;
 
+    // Book updates often include bids/asks arrays; compute mid
+    const bids = msg?.bids || msg?.b || [];
+    const asks = msg?.asks || msg?.a || [];
+    const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
+    const bestAsk = asks[0]?.price ?? asks[0]?.[0] ?? null;
+    if (bestBid == null && bestAsk == null) return;
+    const bidNum = bestBid != null ? Number(bestBid) : null;
+    const askNum = bestAsk != null ? Number(bestAsk) : null;
     let mid: number | null = null;
-    if (typeof msg.mid_price === 'number') mid = msg.mid_price;
-    const bestBid = typeof msg.best_bid === 'number' ? msg.best_bid : (typeof msg.bid === 'number' ? msg.bid : msg?.bids?.[0]?.price ?? null);
-    const bestAsk = typeof msg.best_ask === 'number' ? msg.best_ask : (typeof msg.ask === 'number' ? msg.ask : msg?.asks?.[0]?.price ?? null);
-    if (mid === null && bestBid !== null && bestAsk !== null) {
-      mid = (Number(bestBid) + Number(bestAsk)) / 2;
-    }
+    if (bidNum != null && askNum != null) mid = (bidNum + askNum) / 2;
+    else if (bidNum != null) mid = bidNum;
+    else if (askNum != null) mid = askNum;
     if (mid === null) return;
 
     const priceCents = mid < 5 ? mid * 100 : mid;
