@@ -3,14 +3,17 @@ import { TrendingUp, TrendingDown, Clock, DollarSign, Activity, Target, Zap, Pla
 import { useBotStore } from '../store/botStore';
 
 export function Dashboard() {
-  const { status, market, positions, aiAnalysis, llmAnalysis, startBot, stopBot } = useBotStore();
+  const { status, market, positions, aiAnalysis, llmAnalysis, trades, startBot, stopBot } = useBotStore();
 
-  const formatTime = (ms: number) => {
-    if (ms <= 0) return '00:00';
-    const seconds = Math.floor(ms / 1000);
-    const mins = Math.floor(seconds / 60);
+  const formatDuration = (secondsInput: number) => {
+    const seconds = Math.max(0, Math.floor(secondsInput));
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const hh = hrs.toString().padStart(2, '0');
+    const mm = mins.toString().padStart(2, '0');
+    const ss = secs.toString().padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
   };
 
   const renderConfidenceBar = (value: number) => (
@@ -21,6 +24,56 @@ export function Dashboard() {
       />
     </div>
   );
+
+  const pnlSeries = React.useMemo(() => {
+    const chronological = [...trades].reverse();
+    let cum = 0;
+    const points = chronological.map((t, idx) => {
+      const delta = Number(t.pnl ?? 0);
+      cum += delta;
+      return { x: idx, y: cum / 100 }; // USDC
+    });
+    if (points.length === 0) return [];
+    // ensure baseline at zero for nicer chart
+    return [{ x: -1, y: 0 }, ...points];
+  }, [trades]);
+
+  const renderPnlChart = () => {
+    if (pnlSeries.length === 0) {
+      return <div className="text-gray-500 text-sm">尚無交易記錄</div>;
+    }
+    const width = 360;
+    const height = 180;
+    const xs = pnlSeries.map(p => p.x);
+    const ys = pnlSeries.map(p => p.y);
+    const minY = Math.min(...ys, 0);
+    const maxY = Math.max(...ys, 0.01);
+    const spanY = maxY - minY || 1;
+    const spanX = (Math.max(...xs) - Math.min(...xs)) || 1;
+    const minX = Math.min(...xs);
+    const scaleX = (x: number) => ((x - minX) / spanX) * width;
+    const scaleY = (y: number) => height - ((y - minY) / spanY) * height;
+    const path = pnlSeries
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(p.x).toFixed(2)} ${scaleY(p.y).toFixed(2)}`)
+      .join(' ');
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48">
+        <defs>
+          <linearGradient id="pnlGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#34d399" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={path} fill="none" stroke="#34d399" strokeWidth="2.5" />
+        <path
+          d={`${path} L ${scaleX(pnlSeries[pnlSeries.length - 1].x).toFixed(2)} ${height} L ${scaleX(pnlSeries[0].x).toFixed(2)} ${height} Z`}
+          fill="url(#pnlGradient)"
+          opacity={0.3}
+        />
+        <line x1="0" x2={width} y1={scaleY(0)} y2={scaleY(0)} stroke="#4b5563" strokeDasharray="4 4" />
+      </svg>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -113,11 +166,28 @@ export function Dashboard() {
           <div className="text-gray-600 text-xs mt-1">
             {status.paperTrade ? '模擬交易模式' : '真實交易模式'}
           </div>
+          <div className="text-gray-400 text-xs mt-2 flex items-center gap-2">
+            <Clock className="w-4 h-4" /> 運行時間 {formatDuration(status.uptimeSeconds || 0)}
+          </div>
         </div>
       </div>
 
       {/* Market Info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Total PnL Chart */}
+        <div className="cyber-card rounded-xl p-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-400" />
+              <h3 className="text-lg font-bold text-white">累計盈虧走勢</h3>
+            </div>
+            <div className={`text-sm font-mono ${status.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {status.totalPnl >= 0 ? '+' : ''}{(status.totalPnl / 100).toFixed(4)} USDC
+            </div>
+          </div>
+          {renderPnlChart()}
+        </div>
+
         {/* Current Market */}
         <div className="cyber-card rounded-xl p-6">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -134,7 +204,7 @@ export function Dashboard() {
                 </div>
                 <div className="text-right">
                   <div className="text-gray-500 text-xs mb-1">距離結束</div>
-                  <div className="text-cyan-400 font-mono text-xl">{formatTime(market.timeToEnd)}</div>
+                  <div className="text-cyan-400 font-mono text-xl">{formatDuration((market.timeToEnd || 0) / 1000)}</div>
                 </div>
               </div>
               
@@ -145,7 +215,7 @@ export function Dashboard() {
                 </div>
                 <div className="text-right">
                   <div className="text-gray-500 text-xs mb-1">距離開始</div>
-                  <div className="text-purple-400 font-mono text-xl">{formatTime(market.timeToStart)}</div>
+                  <div className="text-purple-400 font-mono text-xl">{formatDuration((market.timeToStart || 0) / 1000)}</div>
                 </div>
               </div>
 

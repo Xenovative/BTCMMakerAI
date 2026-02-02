@@ -30,6 +30,7 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 // Bot state
 let botRunning = false;
 let botInterval: NodeJS.Timeout | null = null;
+let botStartTime: number | null = null;
 const fetcher = new MarketFetcher();
 const trader = new Trader();
 const strategy = new Strategy();
@@ -219,6 +220,7 @@ async function tick() {
       timeToStart: state.timeToStart,
       timeToEnd: state.timeToEnd,
       btcSpot: rtdsPriceFeed.getLatestPrice(),
+      uptimeSeconds: botStartTime ? Math.floor((Date.now() - botStartTime) / 1000) : 0,
     });
     console.log('[Market broadcast] up=%d down=%d curUp=%d curDown=%d', liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
@@ -304,6 +306,13 @@ async function tick() {
       winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
     });
 
+    // Hard stop if loss limit breached
+    if (config.LOSS_LIMIT_CENTS > 0 && totalPnl <= -Math.abs(config.LOSS_LIMIT_CENTS)) {
+      console.warn(`[Risk] Total PnL ${totalPnl.toFixed(2)}¢ <= -${config.LOSS_LIMIT_CENTS}¢, stopping bot.`);
+      stopBot();
+      return;
+    }
+
     // Broadcast AI analysis (next + current)
     if (config.AI_ENABLED) {
       const scopes: Array<'next' | 'current'> = ['next', 'current'];
@@ -357,6 +366,7 @@ async function startBot() {
 
   console.log('🚀 Starting bot...');
   botRunning = true;
+  botStartTime = Date.now();
   // Connect live price feed
   try {
     livePriceFeed.connect();
@@ -397,6 +407,7 @@ async function startBot() {
     running: true,
     connected: true,
     paperTrade: config.PAPER_TRADING,
+    uptimeSeconds: botStartTime ? Math.floor((Date.now() - botStartTime) / 1000) : 0,
   });
 
   console.log('✅ Bot started');
@@ -419,6 +430,7 @@ function stopBot() {
     running: false,
     connected: true,
     paperTrade: config.PAPER_TRADING,
+    uptimeSeconds: botStartTime ? Math.floor((Date.now() - botStartTime) / 1000) : 0,
   });
 
   console.log('✅ Bot stopped');

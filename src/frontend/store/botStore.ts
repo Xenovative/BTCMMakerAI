@@ -76,6 +76,7 @@ export interface BotStatus {
   totalPnl: number;
   totalTrades: number;
   winRate: number;
+  uptimeSeconds?: number;
 }
 
 interface BotStore {
@@ -113,6 +114,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
     totalPnl: 0,
     totalTrades: 0,
     winRate: 0,
+    uptimeSeconds: 0,
   },
   positions: [],
   trades: [],
@@ -143,7 +145,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
 
         switch (type) {
           case 'status':
-            set({ status: { ...get().status, ...data } });
+            set({ status: { ...get().status, ...data, uptimeSeconds: data?.uptimeSeconds != null ? Number(data.uptimeSeconds) : get().status.uptimeSeconds } });
             break;
           case 'config':
             set({ config: { ...get().config, ...data } });
@@ -165,6 +167,9 @@ export const useBotStore = create<BotStore>((set, get) => ({
               : null;
             console.log('[WS][market]', parsedMarket);
             set({ market: parsedMarket });
+            if (data?.uptimeSeconds != null) {
+              set({ status: { ...get().status, uptimeSeconds: Number(data.uptimeSeconds) } });
+            }
             break;
           case 'positions':
             if (Array.isArray(data)) {
