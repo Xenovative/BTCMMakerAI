@@ -76,7 +76,6 @@ export class LivePriceFeed {
           if (priceCents < 15 || priceCents > 85) {
             continue;
           }
-          console.log('[WS][price_change] token=%s price=%s -> %d¢', tokenId, change.price, priceCents);
           this.setPrice(tokenId, priceCents, true); // force from WS
         }
       }
@@ -90,7 +89,6 @@ export class LivePriceFeed {
       if (!isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
         if (priceCents >= 15 && priceCents <= 85) {
-          console.log('[WS][price] token=%s price=%s -> %d¢', tokenId, msg.price, priceCents);
           this.setPrice(tokenId, priceCents, true);
         }
         return;

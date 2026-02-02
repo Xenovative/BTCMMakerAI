@@ -165,7 +165,18 @@ export const useBotStore = create<BotStore>((set, get) => ({
             set({ market: parsedMarket });
             break;
           case 'positions':
-            set({ positions: data });
+            if (Array.isArray(data)) {
+              const parsedPositions = data.map((p: any) => ({
+                tokenId: p.tokenId,
+                outcome: p.outcome,
+                size: Number(p.size) || 0,
+                avgBuyPrice: Number(p.avgBuyPrice) || 0,
+                currentPrice: Number(p.currentPrice) || 0,
+                unrealizedPnl: Number(p.unrealizedPnl) || 0,
+              }));
+              console.log('[WS][positions]', parsedPositions);
+              set({ positions: parsedPositions });
+            }
             break;
           case 'trade':
             set({ trades: [data, ...get().trades].slice(0, 100) });
