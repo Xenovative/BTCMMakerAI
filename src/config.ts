@@ -50,6 +50,11 @@ export const config = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini', // gpt-4o, gpt-4o-mini, gpt-4-turbo
   LLM_ENABLED: process.env.LLM_ENABLED !== 'false', // 是否啟用 LLM 分析（默認開啟）
+
+  // Real-time BTC spot feed (RTDS)
+  RTDS_ENABLED: process.env.RTDS_ENABLED !== 'false',
+  RTDS_WS_URL: process.env.RTDS_WS_URL || '', // default to Binance BTCUSDT trade stream if empty
+  RTDS_SUBSCRIBE_MESSAGE: process.env.RTDS_SUBSCRIBE_MESSAGE || '', // optional custom subscribe payload
 };
 
 export function validateConfig(): void {

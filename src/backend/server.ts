@@ -11,6 +11,7 @@ import { config } from '../config.js';
 import { aiAnalyzer } from '../ai-analyzer.js';
 import { llmAnalyzer } from '../llm-analyzer.js';
 import { livePriceFeed } from './live-price-feed.js';
+import { rtdsPriceFeed } from './rtds-price-feed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -172,6 +173,10 @@ async function tick() {
         }
         strategy.setLivePrices(updatedLivePrices);
 
+        // Attach BTC spot (RTDS) for analyses
+        const btcSpot = rtdsPriceFeed.getLatestPrice();
+        strategy.setBtcSpot(btcSpot);
+
         // Update live price vars for broadcast
         const wsUp = updatedLivePrices[state.upTokenId];
         const wsDown = updatedLivePrices[state.downTokenId];
@@ -213,6 +218,7 @@ async function tick() {
       currentDownPrice: liveCurrentDown,
       timeToStart: state.timeToStart,
       timeToEnd: state.timeToEnd,
+      btcSpot: strategy.getLastAIAnalysis('next') ? (strategy as any).btcSpot ?? rtdsPriceFeed.getLatestPrice() : rtdsPriceFeed.getLatestPrice(),
     });
     console.log('[Market broadcast] up=%d down=%d curUp=%d curDown=%d', liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
@@ -356,6 +362,15 @@ async function startBot() {
     livePriceFeed.connect();
   } catch (e) {
     console.warn('[WS] Failed to start price feed', e);
+  }
+
+  // Connect RTDS BTC spot feed
+  if (config.RTDS_ENABLED) {
+    try {
+      rtdsPriceFeed.connect();
+    } catch (e) {
+      console.warn('[RTDS] Failed to start spot feed', e);
+    }
   }
 
   const loop = async () => {

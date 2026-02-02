@@ -30,6 +30,7 @@ export class Strategy {
   } = { next: null, current: null };
   private pendingLLMAnalysis: { next: Promise<LLMAnalysis> | null; current: Promise<LLMAnalysis> | null } = { next: null, current: null };
   private livePrices: Record<string, number> = {};
+  private btcSpot: number | null = null;
 
   /**
    * 分析當前盤口走勢
@@ -237,6 +238,10 @@ export class Strategy {
     this.livePrices = prices;
   }
 
+  setBtcSpot(price: number | null): void {
+    this.btcSpot = price;
+  }
+
   /**
    * 獲取最近一次 AI 分析結果
    */
@@ -285,10 +290,10 @@ export class Strategy {
   refreshAIAnalyses(state: MarketState, positions: Map<string, Position>): void {
     if (!config.AI_ENABLED) return;
     if (this.cachedOrderBooks.next) {
-      this.lastAIAnalysis.next = this.runAIAnalysisSync(state, positions, this.cachedOrderBooks.next);
+      this.lastAIAnalysis.next = this.runAIAnalysisSync(state, positions, this.cachedOrderBooks.next, this.livePrices, this.btcSpot ?? undefined);
     }
     if (this.cachedOrderBooks.current) {
-      this.lastAIAnalysis.current = this.runAIAnalysisSync(state, positions, this.cachedOrderBooks.current);
+      this.lastAIAnalysis.current = this.runAIAnalysisSync(state, positions, this.cachedOrderBooks.current, this.livePrices, this.btcSpot ?? undefined);
     }
   }
 
@@ -401,7 +406,7 @@ export class Strategy {
     scope: 'next' | 'current'
   ): TradeSignal | null {
     // 同步執行 AI 分析（使用指定的訂單簿）
-    const analysis = this.runAIAnalysisSync(state, positions, orderBooks, this.livePrices);
+    const analysis = this.runAIAnalysisSync(state, positions, orderBooks, this.livePrices, this.btcSpot ?? undefined);
     this.lastAIAnalysis[scope] = analysis;
 
     // 輸出 AI 分析摘要
@@ -433,7 +438,8 @@ export class Strategy {
     state: MarketState,
     positions: Map<string, Position>,
     orderBooks: { up: OrderBook; down: OrderBook } | null,
-    livePrices?: Record<string, number>
+    livePrices?: Record<string, number>,
+    btcSpot?: number
   ): AIAnalysis {
     if (!orderBooks) {
       return {
@@ -452,7 +458,8 @@ export class Strategy {
     }
 
     // 直接調用同步版本的 analyze
-    return aiAnalyzer.analyzeSync(state, orderBooks.up, orderBooks.down, positions, livePrices);
+    const spot = btcSpot ?? this.btcSpot ?? undefined;
+    return aiAnalyzer.analyzeSync(state, orderBooks.up, orderBooks.down, positions, livePrices, spot);
   }
 
   /**

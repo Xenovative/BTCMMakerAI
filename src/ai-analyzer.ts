@@ -101,7 +101,8 @@ export class AIAnalyzer {
     upOrderBook: OrderBook,
     downOrderBook: OrderBook,
     positions: Map<string, Position>,
-    livePrices?: Record<string, number> // tokenId -> price in cents
+    livePrices?: Record<string, number>, // tokenId -> price in cents
+    btcSpot?: number // BTC spot price (USDT)
   ): AIAnalysis {
     console.log('[AI][Input] upPrice=%d, downPrice=%d, timeToStart=%ds, timeToEnd=%ds',
       state.upPrice, state.downPrice, Math.round(state.timeToStart / 1000), Math.round(state.timeToEnd / 1000));
@@ -123,6 +124,9 @@ export class AIAnalyzer {
     // 記錄當前價格
     if (state.upTokenId) this.recordPrice(state.upTokenId, upPriceRt);
     if (state.downTokenId) this.recordPrice(state.downTokenId, downPriceRt);
+    if (btcSpot != null) this.recordPrice('BTC_SPOT', btcSpot);
+
+    const btcMomentum = this.calculateMomentumFromHistory('BTC_SPOT');
 
     // 1. 技術分析
     const technicalUp = this.analyzeTechnical(state.upTokenId, upPriceRt);
@@ -133,8 +137,8 @@ export class AIAnalyzer {
     const orderBookDown = this.analyzeOrderBook(downOrderBook, downPriceRt);
 
     // 3. 情緒分析
-    const sentimentUp = this.analyzeSentiment(upPriceRt, 'Up');
-    const sentimentDown = this.analyzeSentiment(downPriceRt, 'Down');
+    const sentimentUp = this.analyzeSentiment(upPriceRt, 'Up', btcMomentum);
+    const sentimentDown = this.analyzeSentiment(downPriceRt, 'Down', btcMomentum);
 
     // 4. 時機分析
     const timing = this.analyzeTiming(state);
@@ -279,7 +283,7 @@ export class AIAnalyzer {
   /**
    * 情緒分析
    */
-  private analyzeSentiment(price: number, outcome: 'Up' | 'Down'): SentimentSignal {
+  private analyzeSentiment(price: number, outcome: 'Up' | 'Down', btcMomentum?: number): SentimentSignal {
     // 價格偏離 50¢ 的程度
     const priceDeviation = price - 50;
 
@@ -306,6 +310,15 @@ export class AIAnalyzer {
     // 勝率調整
     if (recentWinRate > 60) score += 15;
     else if (recentWinRate < 40) score -= 15;
+
+    // BTC 動能偏好 (正動能偏向 Up, 負動能偏向 Down)
+    if (btcMomentum != null) {
+      if (btcMomentum > 0.2) {
+        score += outcome === 'Up' ? 12 : -8;
+      } else if (btcMomentum < -0.2) {
+        score += outcome === 'Down' ? 12 : -8;
+      }
+    }
 
     return {
       priceDeviation,
@@ -530,6 +543,19 @@ export class AIAnalyzer {
 
     const rs = gains / losses;
     return 100 - (100 / (1 + rs));
+  }
+
+  /**
+   * 計算動能（通用）
+   */
+  private calculateMomentumFromHistory(tokenId: string, short: number = 3, long: number = 10): number {
+    const history = this.priceHistory.get(tokenId) || [];
+    if (history.length < long) return 0;
+
+    const shortMA = this.calculateMA(history, short);
+    const longMA = this.calculateMA(history, long);
+    const momentum = ((shortMA - longMA) / longMA) * 100;
+    return Math.max(-100, Math.min(100, momentum));
   }
 
   /**
