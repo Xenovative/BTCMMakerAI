@@ -202,7 +202,17 @@ export class Strategy {
 
     // 情況 4a: 盤前買入（下一個市場）
     if (state.nextMarket && state.timeToStart > config.MIN_TIME_TO_TRADE_MS) {
-      const signal = this.tryBuyMarket(state, positions, state.upTokenId, state.downTokenId, state.upPrice, state.downPrice, '盤前', this.cachedOrderBooks.next);
+      const signal = this.tryBuyWithAI(
+        state,
+        positions,
+        state.upTokenId,
+        state.downTokenId,
+        state.upPrice,
+        state.downPrice,
+        '盤前',
+        this.cachedOrderBooks.next as any,
+        'next'
+      );
       if (signal) {
         signals.push(signal);
       }
@@ -210,7 +220,17 @@ export class Strategy {
     
     // 情況 4b: 盤中低吸（當前市場）- 市場進行中且距離結束還有足夠時間
     if (config.ALLOW_CURRENT_MARKET_TRADING && state.currentMarket && state.timeToEnd > config.SELL_BEFORE_START_MS + 60000) { // 至少比清倉時間多 1 分鐘
-      const signal = this.tryBuyMarket(state, positions, state.currentUpTokenId, state.currentDownTokenId, state.currentUpPrice, state.currentDownPrice, '盤中低吸', this.cachedOrderBooks.current || this.cachedOrderBooks.next);
+      const signal = this.tryBuyWithAI(
+        state,
+        positions,
+        state.currentUpTokenId,
+        state.currentDownTokenId,
+        state.currentUpPrice,
+        state.currentDownPrice,
+        '盤中低吸',
+        (this.cachedOrderBooks.current || this.cachedOrderBooks.next) as any,
+        'current'
+      );
       if (signal) {
         signals.push(signal);
       }
