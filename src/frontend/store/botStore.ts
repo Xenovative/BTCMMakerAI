@@ -148,7 +148,21 @@ export const useBotStore = create<BotStore>((set, get) => ({
             set({ config: { ...get().config, ...data } });
             break;
           case 'market':
-            set({ market: data });
+            // Ensure numeric prices and log for debugging
+            const parsedMarket = data
+              ? {
+                  currentMarket: data.currentMarket ?? null,
+                  nextMarket: data.nextMarket ?? null,
+                  upPrice: Number(data.upPrice),
+                  downPrice: Number(data.downPrice),
+                  currentUpPrice: Number(data.currentUpPrice),
+                  currentDownPrice: Number(data.currentDownPrice),
+                  timeToStart: Number(data.timeToStart),
+                  timeToEnd: Number(data.timeToEnd),
+                }
+              : null;
+            console.log('[WS][market]', parsedMarket);
+            set({ market: parsedMarket });
             break;
           case 'positions':
             set({ positions: data });
