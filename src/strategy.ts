@@ -24,7 +24,10 @@ export class Strategy {
   private minProfitableMove: number = 0; // 考慮手續費後的最小獲利價格變動
   private lastAIAnalysis: AIAnalysis | null = null; // 最近一次 AI 分析結果
   private lastLLMAnalysis: LLMAnalysis | null = null; // 最近一次 LLM 分析結果
-  private cachedOrderBooks: { up: OrderBook; down: OrderBook } | null = null;
+  private cachedOrderBooks: {
+    next: { up: OrderBook; down: OrderBook } | null;
+    current: { up: OrderBook; down: OrderBook } | null;
+  } = { next: null, current: null };
   private pendingLLMAnalysis: Promise<LLMAnalysis> | null = null;
 
   /**
@@ -199,19 +202,17 @@ export class Strategy {
 
     // 情況 4a: 盤前買入（下一個市場）
     if (state.nextMarket && state.timeToStart > config.MIN_TIME_TO_TRADE_MS) {
-      const signal = this.tryBuyMarket(state, positions, state.upTokenId, state.downTokenId, state.upPrice, state.downPrice, '盤前');
+      const signal = this.tryBuyMarket(state, positions, state.upTokenId, state.downTokenId, state.upPrice, state.downPrice, '盤前', this.cachedOrderBooks.next);
       if (signal) {
         signals.push(signal);
-        return signals;
       }
     }
     
     // 情況 4b: 盤中低吸（當前市場）- 市場進行中且距離結束還有足夠時間
     if (config.ALLOW_CURRENT_MARKET_TRADING && state.currentMarket && state.timeToEnd > config.SELL_BEFORE_START_MS + 60000) { // 至少比清倉時間多 1 分鐘
-      const signal = this.tryBuyMarket(state, positions, state.currentUpTokenId, state.currentDownTokenId, state.currentUpPrice, state.currentDownPrice, '盤中低吸');
+      const signal = this.tryBuyMarket(state, positions, state.currentUpTokenId, state.currentDownTokenId, state.currentUpPrice, state.currentDownPrice, '盤中低吸', this.cachedOrderBooks.current || this.cachedOrderBooks.next);
       if (signal) {
         signals.push(signal);
-        return signals;
       }
     }
 
@@ -221,8 +222,16 @@ export class Strategy {
   /**
    * 設置訂單簿緩存（由外部調用者提供）
    */
-  setOrderBooks(upOrderBook: OrderBook, downOrderBook: OrderBook): void {
-    this.cachedOrderBooks = { up: upOrderBook, down: downOrderBook };
+  setOrderBooks(
+    nextUpOrderBook: OrderBook,
+    nextDownOrderBook: OrderBook,
+    currentUpOrderBook?: OrderBook,
+    currentDownOrderBook?: OrderBook
+  ): void {
+    this.cachedOrderBooks.next = { up: nextUpOrderBook, down: nextDownOrderBook };
+    if (currentUpOrderBook && currentDownOrderBook) {
+      this.cachedOrderBooks.current = { up: currentUpOrderBook, down: currentDownOrderBook };
+    }
   }
 
   /**
@@ -243,7 +252,7 @@ export class Strategy {
    * 預先觸發 LLM 分析（非阻塞）
    */
   triggerLLMAnalysis(state: MarketState, positions: Map<string, Position>): void {
-    if (!config.LLM_ENABLED || !llmAnalyzer.isAvailable() || !this.cachedOrderBooks) {
+    if (!config.LLM_ENABLED || !llmAnalyzer.isAvailable() || !this.cachedOrderBooks.next) {
       return;
     }
     
@@ -254,8 +263,8 @@ export class Strategy {
 
     this.pendingLLMAnalysis = llmAnalyzer.analyze(
       state,
-      this.cachedOrderBooks.up,
-      this.cachedOrderBooks.down,
+      this.cachedOrderBooks.next.up,
+      this.cachedOrderBooks.next.down,
       positions
     ).then(analysis => {
       this.lastLLMAnalysis = analysis;
@@ -290,7 +299,8 @@ export class Strategy {
     downTokenId: string,
     upPrice: number,
     downPrice: number,
-    label: string
+    label: string,
+    orderBooks: { up: OrderBook; down: OrderBook } | null = null
   ): TradeSignal | null {
     if (!upTokenId || !downTokenId) return null;
     
@@ -321,8 +331,8 @@ export class Strategy {
     }
 
     // ==================== 規則式 AI 分析模式（後備） ====================
-    if (config.AI_ENABLED && this.cachedOrderBooks) {
-      return this.tryBuyWithAI(state, positions, upTokenId, downTokenId, upPrice, downPrice, label);
+    if (config.AI_ENABLED && orderBooks) {
+      return this.tryBuyWithAI(state, positions, upTokenId, downTokenId, upPrice, downPrice, label, orderBooks);
     }
 
     // ==================== 傳統模式（所有 AI 關閉時的後備） ====================
@@ -370,12 +380,11 @@ export class Strategy {
     downTokenId: string,
     upPrice: number,
     downPrice: number,
-    label: string
+    label: string,
+    orderBooks: { up: OrderBook; down: OrderBook }
   ): TradeSignal | null {
-    if (!this.cachedOrderBooks) return null;
-
-    // 同步執行 AI 分析（使用緩存的訂單簿）
-    const analysis = this.runAIAnalysisSync(state, positions);
+    // 同步執行 AI 分析（使用指定的訂單簿）
+    const analysis = this.runAIAnalysisSync(state, positions, orderBooks);
     this.lastAIAnalysis = analysis;
 
     // 輸出 AI 分析摘要
@@ -405,9 +414,10 @@ export class Strategy {
    */
   private runAIAnalysisSync(
     state: MarketState,
-    positions: Map<string, Position>
+    positions: Map<string, Position>,
+    orderBooks: { up: OrderBook; down: OrderBook } | null
   ): AIAnalysis {
-    if (!this.cachedOrderBooks) {
+    if (!orderBooks) {
       return {
         shouldTrade: false,
         recommendedOutcome: null,
@@ -424,7 +434,7 @@ export class Strategy {
     }
 
     // 直接調用同步版本的 analyze
-    return aiAnalyzer.analyzeSync(state, this.cachedOrderBooks.up, this.cachedOrderBooks.down, positions);
+    return aiAnalyzer.analyzeSync(state, orderBooks.up, orderBooks.down, positions);
   }
 
   /**
