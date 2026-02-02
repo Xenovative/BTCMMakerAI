@@ -115,6 +115,9 @@ async function tick() {
           currentEnabled ? normalizeOrderBook(currentUpOrderBook) : undefined,
           currentEnabled ? normalizeOrderBook(currentDownOrderBook) : undefined,
         );
+
+        // Pre-compute AI analyses for both scopes
+        strategy.refreshAIAnalyses(state, positions);
         
         // Update AI analyzer with trade history for win rate calculation
         aiAnalyzer.updateTradeHistory(trader.getTradeHistory());

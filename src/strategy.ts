@@ -28,7 +28,7 @@ export class Strategy {
     next: { up: OrderBook; down: OrderBook } | null;
     current: { up: OrderBook; down: OrderBook } | null;
   } = { next: null, current: null };
-  private pendingLLMAnalysis: Promise<LLMAnalysis> | null = null;
+  private pendingLLMAnalysis: { next: Promise<LLMAnalysis> | null; current: Promise<LLMAnalysis> | null } = { next: null, current: null };
 
   /**
    * 分析當前盤口走勢
@@ -250,30 +250,40 @@ export class Strategy {
    * 預先觸發 LLM 分析（非阻塞）
    */
   triggerLLMAnalysis(state: MarketState, positions: Map<string, Position>): void {
-    if (!config.LLM_ENABLED || !llmAnalyzer.isAvailable() || !this.cachedOrderBooks.next) {
-      return;
-    }
-    
-    // 如果已經有待處理的分析，不重複觸發
-    if (this.pendingLLMAnalysis) {
-      return;
-    }
+    if (!config.LLM_ENABLED || !llmAnalyzer.isAvailable()) return;
 
-    this.pendingLLMAnalysis = llmAnalyzer.analyze(
-      state,
-      this.cachedOrderBooks.next.up,
-      this.cachedOrderBooks.next.down,
-      positions
-    ).then(analysis => {
-      this.lastLLMAnalysis.next = analysis;
-      this.pendingLLMAnalysis = null;
-      console.log(llmAnalyzer.getAnalysisSummary(analysis));
-      return analysis;
-    }).catch(err => {
-      console.error('[LLM] 分析失敗:', err);
-      this.pendingLLMAnalysis = null;
-      return this.getDefaultLLMAnalysis();
-    });
+    const launch = (scope: 'next' | 'current', orderBooks?: { up: OrderBook; down: OrderBook }) => {
+      if (!orderBooks) return;
+      if (this.pendingLLMAnalysis[scope]) return; // already running
+      this.pendingLLMAnalysis[scope] = llmAnalyzer.analyze(state, orderBooks.up, orderBooks.down, positions)
+        .then(analysis => {
+          this.lastLLMAnalysis[scope] = analysis;
+          this.pendingLLMAnalysis[scope] = null;
+          console.log(llmAnalyzer.getAnalysisSummary(analysis));
+          return analysis;
+        })
+        .catch(err => {
+          console.error('[LLM] 分析失敗:', err);
+          this.pendingLLMAnalysis[scope] = null;
+          return this.getDefaultLLMAnalysis();
+        });
+    };
+
+    launch('next', this.cachedOrderBooks.next || undefined);
+    launch('current', this.cachedOrderBooks.current || undefined);
+  }
+
+  /**
+   * 預先刷新 AI 分析（規則式）for both scopes
+   */
+  refreshAIAnalyses(state: MarketState, positions: Map<string, Position>): void {
+    if (!config.AI_ENABLED) return;
+    if (this.cachedOrderBooks.next) {
+      this.lastAIAnalysis.next = this.runAIAnalysisSync(state, positions, this.cachedOrderBooks.next);
+    }
+    if (this.cachedOrderBooks.current) {
+      this.lastAIAnalysis.current = this.runAIAnalysisSync(state, positions, this.cachedOrderBooks.current);
+    }
   }
 
   private getDefaultLLMAnalysis(): LLMAnalysis {
