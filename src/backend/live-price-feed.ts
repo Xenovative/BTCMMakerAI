@@ -70,13 +70,13 @@ export class LivePriceFeed {
     const tokenId = msg?.asset_id || msg?.product_id || msg?.token_id || msg?.tokenId;
     if (!tokenId) return;
 
-    // If a last price is provided in a sane band, use it directly (seed when book is sparse)
-    const priceVal = msg?.price ?? msg?.last_price ?? null;
+    // If a last price / price_change is provided, use it as seed (allow 0.5–99.5¢)
+    const priceVal = msg?.price ?? msg?.last_price ?? (Array.isArray(msg?.price_changes) ? msg.price_changes[0]?.price : null);
     if (priceVal != null) {
       const price = Number(priceVal);
       if (!Number.isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
-        if (priceCents > 5 && priceCents < 95) {
+        if (priceCents > 0.5 && priceCents < 99.5) {
           this.setPrice(tokenId, priceCents, true);
           return;
         }

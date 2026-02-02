@@ -140,14 +140,17 @@ async function tick() {
         const getMid = (ob: any) => {
           const bid = ob?.bids?.[0]?.price;
           const ask = ob?.asks?.[0]?.price;
-          if (bid != null && ask != null) return ((parseFloat(bid) + parseFloat(ask)) / 2) * 100;
-          // if only one side, return null to avoid skew (fallback to API price)
-          return null;
+          if (bid == null || ask == null) return null;
+          const bidNum = parseFloat(bid);
+          const askNum = parseFloat(ask);
+          const spreadCents = (askNum - bidNum) * 100;
+          if (!isFinite(spreadCents) || spreadCents <= 0 || spreadCents > 20) return null; // ignore super wide books
+          return ((bidNum + askNum) / 2) * 100;
         };
         const upMid = getMid(upOrderBook);
         const downMid = getMid(downOrderBook);
         console.log('[OrderBook Mids] Next: up=%.2f¢ down=%.2f¢ (from bids/asks in $)', upMid, downMid);
-        // Overwrite with API order book mids to avoid stale 50/50
+        // Use mids only when spread is sane; otherwise keep last/live
         if (upMid !== null && state.upTokenId) livePriceFeed.setPrice(state.upTokenId, upMid, true);
         if (downMid !== null && state.downTokenId) livePriceFeed.setPrice(state.downTokenId, downMid, true);
         if (currentEnabled) {
