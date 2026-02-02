@@ -378,13 +378,22 @@ export class Strategy {
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
 
+    const existingSize = positions.get(tokenId)?.size ?? 0;
+    const remainingCap = Math.max(0, config.MAX_POSITION_SIZE - existingSize);
+    if (remainingCap <= 0) {
+      console.log(`[AI] 已達最大倉位 ${config.MAX_POSITION_SIZE}, 不再加倉 ${analysis.recommendedOutcome}`);
+      return null;
+    }
+
+    const finalSize = Math.min(analysis.recommendedSize, remainingCap);
+
     return {
       action: 'BUY',
       tokenId,
       outcome: analysis.recommendedOutcome,
       price,
-      size: analysis.recommendedSize,
-      reason: `[AI] ${label}買入 ${analysis.recommendedOutcome} @ ${price.toFixed(1)}¢ (信心: ${analysis.confidence.toFixed(0)}%, 倉位: ${analysis.recommendedSize})`,
+      size: finalSize,
+      reason: `[AI] ${label}買入 ${analysis.recommendedOutcome} @ ${price.toFixed(1)}¢ (信心: ${analysis.confidence.toFixed(0)}%, 倉位: ${finalSize}/${config.MAX_POSITION_SIZE})`,
     };
   }
 
@@ -424,6 +433,7 @@ export class Strategy {
    */
   private tryBuyLegacy(
     state: MarketState,
+    positions: Map<string, Position>,
     upTokenId: string,
     downTokenId: string,
     upPrice: number,
@@ -434,12 +444,15 @@ export class Strategy {
     // 檢查 Up
     if (upPrice < config.MAX_BUY_PRICE) {
       const upMomentum = this.calculateMomentum(upTokenId, upPrice);
+      const existing = positions.get(upTokenId)?.size ?? 0;
+      const remaining = Math.max(0, config.MAX_POSITION_SIZE - existing);
+      if (remaining <= 0) return null;
       return {
         action: 'BUY',
         tokenId: upTokenId,
         outcome: 'Up',
         price: upPrice,
-        size: config.MAX_POSITION_SIZE,
+        size: remaining,
         reason: `${label}買入 Up @ ${upPrice.toFixed(1)}¢ (trend: ${trend || 'none'}, momentum: ${upMomentum.toFixed(2)})`,
       };
     }
@@ -447,12 +460,15 @@ export class Strategy {
     // 如果 Up 價格太高，檢查 Down
     if (downPrice < config.MAX_BUY_PRICE) {
       const downMomentum = this.calculateMomentum(downTokenId, downPrice);
+      const existing = positions.get(downTokenId)?.size ?? 0;
+      const remaining = Math.max(0, config.MAX_POSITION_SIZE - existing);
+      if (remaining <= 0) return null;
       return {
         action: 'BUY',
         tokenId: downTokenId,
         outcome: 'Down',
         price: downPrice,
-        size: config.MAX_POSITION_SIZE,
+        size: remaining,
         reason: `${label}買入 Down @ ${downPrice.toFixed(1)}¢ (trend: ${trend || 'none'}, momentum: ${downMomentum.toFixed(2)})`,
       };
     }
