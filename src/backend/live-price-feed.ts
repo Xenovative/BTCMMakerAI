@@ -70,6 +70,19 @@ export class LivePriceFeed {
     const tokenId = msg?.asset_id || msg?.product_id || msg?.token_id || msg?.tokenId;
     if (!tokenId) return;
 
+    // If a last price is provided in a sane band, use it directly (seed when book is sparse)
+    const priceVal = msg?.price ?? msg?.last_price ?? null;
+    if (priceVal != null) {
+      const price = Number(priceVal);
+      if (!Number.isNaN(price)) {
+        const priceCents = price < 5 ? price * 100 : price;
+        if (priceCents > 5 && priceCents < 95) {
+          this.setPrice(tokenId, priceCents, true);
+          return;
+        }
+      }
+    }
+
     const bids = msg?.bids || msg?.b || [];
     const asks = msg?.asks || msg?.a || [];
     const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
@@ -86,24 +99,11 @@ export class LivePriceFeed {
     const askNum = this.bestAsks[tokenId];
 
     // If both sides known, use mid
-    if (bidNum != null && askNum != null) {
-      const mid = (bidNum + askNum) / 2;
-      const priceCents = mid < 5 ? mid * 100 : mid;
-      this.setPrice(tokenId, priceCents, true);
-      return;
-    }
+    if (bidNum == null || askNum == null) return; // wait until both sides seen
 
-    // Fallback: if no both-sides yet, allow price_change/price in 15-85 band
-    const priceVal = msg?.price ?? msg?.last_price ?? null;
-    if (priceVal != null) {
-      const price = Number(priceVal);
-      if (!Number.isNaN(price)) {
-        const priceCents = price < 5 ? price * 100 : price;
-        if (priceCents >= 15 && priceCents <= 85) {
-          this.setPrice(tokenId, priceCents, true);
-        }
-      }
-    }
+    const mid = (bidNum + askNum) / 2;
+    const priceCents = mid < 5 ? mid * 100 : mid;
+    this.setPrice(tokenId, priceCents, true);
   }
 
   getPrices(): Record<string, number> {
