@@ -411,43 +411,12 @@ export class AIAnalyzer {
     confidence: number;
     recommendedSize: number;
   } {
-    // 檢查是否已有持倉
-    const hasPosition = positions.has(state.upTokenId) || positions.has(state.downTokenId);
-    if (hasPosition) {
-      reasons.push('已有持倉，不再買入');
-      return { shouldTrade: false, recommendedOutcome: null, confidence: 0, recommendedSize: 0 };
-    }
-
-    // 時機檢查
-    if (timing.score < -50) {
-      reasons.push(`時機不佳: ${timing.optimalWindow ? '窗口內' : '窗口外'}, timeToStart=${Math.round(timing.timeToStart / 1000)}s`);
-      return { shouldTrade: false, recommendedOutcome: null, confidence: 0, recommendedSize: 0 };
-    }
-
     // 選擇較好的方向
     const bestOutcome: 'Up' | 'Down' = upScore > downScore ? 'Up' : 'Down';
     const bestScore = Math.max(upScore, downScore);
     const bestPrice = bestOutcome === 'Up' ? state.upPrice : state.downPrice;
     const bestOrderBook = bestOutcome === 'Up' ? orderBookUp : orderBookDown;
     const bestTechnical = bestOutcome === 'Up' ? technicalUp : technicalDown;
-
-    // 最低分數門檻
-    if (bestScore < config.AI_MIN_SCORE) {
-      reasons.push(`綜合評分過低: ${bestScore.toFixed(1)} < ${config.AI_MIN_SCORE}`);
-      return { shouldTrade: false, recommendedOutcome: null, confidence: 0, recommendedSize: 0 };
-    }
-
-    // 價格檢查
-    if (bestPrice >= config.MAX_BUY_PRICE) {
-      reasons.push(`價格過高: ${bestPrice.toFixed(1)}¢ >= ${config.MAX_BUY_PRICE}¢`);
-      return { shouldTrade: false, recommendedOutcome: null, confidence: 0, recommendedSize: 0 };
-    }
-
-    // 流動性檢查
-    if (bestOrderBook.liquidityScore < 30) {
-      reasons.push(`流動性不足: ${bestOrderBook.liquidityScore.toFixed(0)}`);
-      return { shouldTrade: false, recommendedOutcome: null, confidence: 0, recommendedSize: 0 };
-    }
 
     // 計算信心度 (0-100)
     // 基於分數、價格優勢、流動性（更積極）
@@ -470,12 +439,6 @@ export class AIAnalyzer {
     else if (bestTechnical.trend === 'bearish') confidence -= 8;
 
     confidence = Math.max(0, Math.min(100, confidence));
-
-    // 信心度門檻
-    if (confidence < config.AI_MIN_CONFIDENCE) {
-      reasons.push(`信心度不足: ${confidence.toFixed(0)}% < ${config.AI_MIN_CONFIDENCE}%`);
-      return { shouldTrade: false, recommendedOutcome: null, confidence, recommendedSize: 0 };
-    }
 
     // 根據信心度計算倉位大小
     const sizeMultiplier = confidence / 100;

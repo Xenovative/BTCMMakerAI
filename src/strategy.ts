@@ -369,8 +369,8 @@ export class Strategy {
     // 輸出 AI 分析摘要
     console.log(aiAnalyzer.getAnalysisSummary(analysis));
 
-    if (!analysis.shouldTrade || !analysis.recommendedOutcome) {
-      console.log(`[AI] 不建議交易: ${analysis.reasons[0] || 'unknown'}`);
+    if (!analysis.recommendedOutcome) {
+      console.log(`[AI] 無推薦方向: ${analysis.reasons[0] || 'unknown'}`);
       return null;
     }
 
