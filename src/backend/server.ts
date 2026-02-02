@@ -66,6 +66,7 @@ async function tick() {
     }
     
     console.log(`[Tick] Up: ${state.upPrice.toFixed(1)}¢, Down: ${state.downPrice.toFixed(1)}¢, timeToStart: ${Math.round(state.timeToStart/1000)}s`);
+    console.log('[Tick] Tokens next(up/down)=%s/%s current(up/down)=%s/%s', state.upTokenId, state.downTokenId, state.currentUpTokenId, state.currentDownTokenId);
 
     // Live price feed subscription
     const tokenIdsToSub: string[] = [];
@@ -76,6 +77,13 @@ async function tick() {
     if (tokenIdsToSub.length > 0) {
       livePriceFeed.subscribe(tokenIdsToSub);
     }
+
+    // Apply live prices to state immediately if available (use cents)
+    const liveSnapshot = livePriceFeed.getPrices();
+    if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
+    if (state.downTokenId && liveSnapshot[state.downTokenId] != null) state.downPrice = liveSnapshot[state.downTokenId];
+    if (state.currentUpTokenId && liveSnapshot[state.currentUpTokenId] != null) state.currentUpPrice = liveSnapshot[state.currentUpTokenId];
+    if (state.currentDownTokenId && liveSnapshot[state.currentDownTokenId] != null) state.currentDownPrice = liveSnapshot[state.currentDownTokenId];
 
     // Broadcast market state (prices will be updated after order book fetch)
     // Initial broadcast with API prices; will be updated below after order book mids computed
