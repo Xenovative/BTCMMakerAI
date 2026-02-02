@@ -65,55 +65,22 @@ export class LivePriceFeed {
   }
 
   private handleMessage(msg: any): void {
-    // Handle price_changes array format
-    if (msg.price_changes && Array.isArray(msg.price_changes)) {
-      for (const change of msg.price_changes) {
-        const tokenId = change.asset_id;
-        const price = parseFloat(change.price);
-        if (tokenId && !isNaN(price)) {
-          const priceCents = price < 5 ? price * 100 : price;
-          // Ignore extremes to avoid 10/90 flips
-          if (priceCents < 15 || priceCents > 85) {
-            continue;
-          }
-          this.setPrice(tokenId, priceCents, true); // force from WS
-        }
-      }
-      return;
-    }
-
-    // Handle direct price update
+    // Only use book updates (bids/asks) to derive mid
     const tokenId = msg?.asset_id || msg?.product_id || msg?.token_id || msg?.tokenId;
-    if (tokenId && msg.price != null) {
-      const price = parseFloat(msg.price);
-      if (!isNaN(price)) {
-        const priceCents = price < 5 ? price * 100 : price;
-        if (priceCents >= 15 && priceCents <= 85) {
-          this.setPrice(tokenId, priceCents, true);
-        }
-        return;
-      }
-    }
+    if (!tokenId) return;
 
-    // Handle bids/asks format
-    if (tokenId) {
-      const bids = msg?.bids || msg?.b || [];
-      const asks = msg?.asks || msg?.a || [];
-      const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
-      const bestAsk = asks[0]?.price ?? asks[0]?.[0] ?? null;
-      if (bestBid == null && bestAsk == null) return;
-      const bidNum = bestBid != null ? Number(bestBid) : null;
-      const askNum = bestAsk != null ? Number(bestAsk) : null;
-      let mid: number | null = null;
-      if (bidNum != null && askNum != null) mid = (bidNum + askNum) / 2;
-      else if (bidNum != null) mid = bidNum;
-      else if (askNum != null) mid = askNum;
-      if (mid === null) return;
+    const bids = msg?.bids || msg?.b || [];
+    const asks = msg?.asks || msg?.a || [];
+    const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
+    const bestAsk = asks[0]?.price ?? asks[0]?.[0] ?? null;
+    if (bestBid == null || bestAsk == null) return; // need both sides for reliable mid
 
-      const priceCents = mid < 5 ? mid * 100 : mid;
-      console.log('[WS][book mid] token=%s mid=%s -> %d¢', tokenId, mid, priceCents);
-      this.setPrice(tokenId, priceCents, true);
-    }
+    const bidNum = Number(bestBid);
+    const askNum = Number(bestAsk);
+    if (Number.isNaN(bidNum) || Number.isNaN(askNum)) return;
+    const mid = (bidNum + askNum) / 2;
+    const priceCents = mid < 5 ? mid * 100 : mid;
+    this.setPrice(tokenId, priceCents, true);
   }
 
   getPrices(): Record<string, number> {
