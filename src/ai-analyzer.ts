@@ -406,24 +406,24 @@ export class AIAnalyzer {
     }
 
     // 計算信心度 (0-100)
-    // 基於分數、價格優勢、流動性
-    let confidence = 50; // 基礎信心
+    // 基於分數、價格優勢、流動性（更積極）
+    let confidence = 60; // 提高基礎信心
     
-    // 分數貢獻
-    confidence += bestScore * 0.3;
+    // 分數貢獻（加大權重）
+    confidence += bestScore * 0.6;
     
     // 價格優勢 (越低越好)
     if (bestPrice < 40) confidence += 20;
-    else if (bestPrice < 45) confidence += 10;
-    else if (bestPrice > 48) confidence -= 10;
+    else if (bestPrice < 45) confidence += 12;
+    else if (bestPrice > 48) confidence -= 6;
 
     // 流動性貢獻
     if (bestOrderBook.liquidityScore > 80) confidence += 10;
-    else if (bestOrderBook.liquidityScore < 50) confidence -= 10;
+    else if (bestOrderBook.liquidityScore < 50) confidence -= 5;
 
     // 技術面貢獻
-    if (bestTechnical.trend === 'bullish') confidence += 10;
-    else if (bestTechnical.trend === 'bearish') confidence -= 10;
+    if (bestTechnical.trend === 'bullish') confidence += 8;
+    else if (bestTechnical.trend === 'bearish') confidence -= 8;
 
     confidence = Math.max(0, Math.min(100, confidence));
 
