@@ -263,14 +263,15 @@ export class AIAnalyzer {
     score += depthImbalance * 50; // 買盤強 = 正分
 
     // 流動性獎勵
-    if (liquidityScore > 80) score += 20;
-    else if (liquidityScore > 50) score += 10;
-    else if (liquidityScore < 30) score -= 30; // 流動性不足懲罰
+    if (liquidityScore > 80) score += 15;
+    else if (liquidityScore > 50) score += 8;
+    else if (liquidityScore < 30) score -= 15; // 放寬流動性懲罰
 
     // 點差懲罰
-    if (bidAskSpread > 3) score -= 30;
-    else if (bidAskSpread > 2) score -= 15;
-    else if (bidAskSpread < 1) score += 10;
+    const clampedSpread = Math.min(bidAskSpread, 50); // 夾住極端點差
+    if (clampedSpread > 10) score -= 12;
+    else if (clampedSpread > 5) score -= 8;
+    else if (clampedSpread < 2) score += 8;
 
     return {
       bidAskSpread,

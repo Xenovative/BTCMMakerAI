@@ -42,9 +42,9 @@ export const config = {
 
   // AI 分析參數
   AI_ENABLED: process.env.AI_ENABLED !== 'false', // 是否啟用 AI 分析（默認開啟）
-  AI_MIN_SCORE: Number(process.env.AI_MIN_SCORE) || 5, // 最低綜合評分門檻（更積極）
-  AI_MIN_CONFIDENCE: Number(process.env.AI_MIN_CONFIDENCE) || 30, // 最低信心度門檻 (%)
-  AI_MIN_POSITION_SIZE: Number(process.env.AI_MIN_POSITION_SIZE) || 30, // AI 模式下最小倉位
+  AI_MIN_SCORE: Number(process.env.AI_MIN_SCORE) || 0, // 最低綜合評分門檻（更寬鬆）
+  AI_MIN_CONFIDENCE: Number(process.env.AI_MIN_CONFIDENCE) || 20, // 最低信心度門檻 (%)
+  AI_MIN_POSITION_SIZE: Number(process.env.AI_MIN_POSITION_SIZE) || 20, // AI 模式下最小倉位
   PRICE_SKEW_LIMIT_CENTS: Number(process.env.PRICE_SKEW_LIMIT_CENTS) || 18, // Up/Down 價差超過此值則不交易
 
   // OpenAI LLM 設定
