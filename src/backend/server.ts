@@ -127,8 +127,7 @@ async function tick() {
           const bid = ob?.bids?.[0]?.price;
           const ask = ob?.asks?.[0]?.price;
           if (bid != null && ask != null) return ((parseFloat(bid) + parseFloat(ask)) / 2) * 100;
-          if (bid != null) return parseFloat(bid) * 100;
-          if (ask != null) return parseFloat(ask) * 100;
+          // if only one side, return null to avoid skew (fallback to API price)
           return null;
         };
         const upMid = getMid(upOrderBook);
@@ -162,10 +161,11 @@ async function tick() {
         const wsCurUp = state.currentUpTokenId ? updatedLivePrices[state.currentUpTokenId] : undefined;
         const wsCurDown = state.currentDownTokenId ? updatedLivePrices[state.currentDownTokenId] : undefined;
 
-        liveUp = wsUp ?? upMid ?? state.upPrice;
-        liveDown = wsDown ?? downMid ?? state.downPrice;
-        liveCurrentUp = state.currentUpTokenId ? (wsCurUp ?? (currentEnabled ? getMid(currentUpOrderBook) : null) ?? state.currentUpPrice) : state.currentUpPrice;
-        liveCurrentDown = state.currentDownTokenId ? (wsCurDown ?? (currentEnabled ? getMid(currentDownOrderBook) : null) ?? state.currentDownPrice) : state.currentDownPrice;
+        // Prefer WS, then API price, lastly mid (only if both sides existed)
+        liveUp = wsUp ?? state.upPrice ?? upMid;
+        liveDown = wsDown ?? state.downPrice ?? downMid;
+        liveCurrentUp = state.currentUpTokenId ? (wsCurUp ?? state.currentUpPrice ?? (currentEnabled ? getMid(currentUpOrderBook) : null)) : state.currentUpPrice;
+        liveCurrentDown = state.currentDownTokenId ? (wsCurDown ?? state.currentDownPrice ?? (currentEnabled ? getMid(currentDownOrderBook) : null)) : state.currentDownPrice;
         console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f (source up=%s down=%s)', 
           liveUp, liveDown, 
           wsUp != null ? 'WS' : (upMid != null ? 'MID' : 'API'),
