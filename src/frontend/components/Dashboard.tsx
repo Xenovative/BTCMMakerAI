@@ -251,6 +251,9 @@ export function Dashboard() {
                       <div className="text-gray-500 text-xs">未實現盈虧</div>
                       <div className={pos.unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400'}>
                         {pos.unrealizedPnl >= 0 ? '+' : ''}{pos.unrealizedPnl.toFixed(2)}¢
+                        <span className="ml-2 text-xs text-gray-400">
+                          ({pos.avgBuyPrice > 0 ? (((pos.currentPrice - pos.avgBuyPrice) / pos.avgBuyPrice) * 100).toFixed(1) + '%' : '—'})
+                        </span>
                       </div>
                     </div>
                   </div>
