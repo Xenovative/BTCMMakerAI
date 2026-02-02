@@ -22,8 +22,8 @@ export class Strategy {
   private lastPrices: Map<string, number[]> = new Map();
   private readonly PRICE_HISTORY_LENGTH = 60;
   private minProfitableMove: number = 0; // 考慮手續費後的最小獲利價格變動
-  private lastAIAnalysis: AIAnalysis | null = null; // 最近一次 AI 分析結果
-  private lastLLMAnalysis: LLMAnalysis | null = null; // 最近一次 LLM 分析結果
+  private lastAIAnalysis: { next: AIAnalysis | null; current: AIAnalysis | null } = { next: null, current: null }; // 最近一次 AI 分析結果
+  private lastLLMAnalysis: { next: LLMAnalysis | null; current: LLMAnalysis | null } = { next: null, current: null }; // 最近一次 LLM 分析結果
   private cachedOrderBooks: {
     next: { up: OrderBook; down: OrderBook } | null;
     current: { up: OrderBook; down: OrderBook } | null;
@@ -235,15 +235,15 @@ export class Strategy {
   /**
    * 獲取最近一次 AI 分析結果
    */
-  getLastAIAnalysis(): AIAnalysis | null {
-    return this.lastAIAnalysis;
+  getLastAIAnalysis(scope: 'next' | 'current' = 'next'): AIAnalysis | null {
+    return this.lastAIAnalysis[scope];
   }
 
   /**
    * 獲取最近一次 LLM 分析結果
    */
-  getLastLLMAnalysis(): LLMAnalysis | null {
-    return this.lastLLMAnalysis;
+  getLastLLMAnalysis(scope: 'next' | 'current' = 'next'): LLMAnalysis | null {
+    return this.lastLLMAnalysis[scope];
   }
 
   /**
@@ -265,7 +265,7 @@ export class Strategy {
       this.cachedOrderBooks.next.down,
       positions
     ).then(analysis => {
-      this.lastLLMAnalysis = analysis;
+      this.lastLLMAnalysis.next = analysis;
       this.pendingLLMAnalysis = null;
       console.log(llmAnalyzer.getAnalysisSummary(analysis));
       return analysis;
@@ -298,7 +298,8 @@ export class Strategy {
     upPrice: number,
     downPrice: number,
     label: string,
-    orderBooks: { up: OrderBook; down: OrderBook } | null = null
+    orderBooks: { up: OrderBook; down: OrderBook } | null = null,
+    scope: 'next' | 'current' = 'next'
   ): TradeSignal | null {
     if (!upTokenId || !downTokenId) return null;
     
@@ -324,13 +325,13 @@ export class Strategy {
     }
 
     // ==================== LLM 分析模式（優先） ====================
-    if (config.LLM_ENABLED && llmAnalyzer.isAvailable() && this.lastLLMAnalysis) {
-      return this.tryBuyWithLLM(state, upTokenId, downTokenId, upPrice, downPrice, label);
+    if (config.LLM_ENABLED && llmAnalyzer.isAvailable() && this.lastLLMAnalysis[scope]) {
+      return this.tryBuyWithLLM(state, upTokenId, downTokenId, upPrice, downPrice, label, scope);
     }
 
     // ==================== 規則式 AI 分析模式（後備） ====================
     if (config.AI_ENABLED && orderBooks) {
-      return this.tryBuyWithAI(state, positions, upTokenId, downTokenId, upPrice, downPrice, label, orderBooks);
+      return this.tryBuyWithAI(state, positions, upTokenId, downTokenId, upPrice, downPrice, label, orderBooks, scope);
     }
 
     // ==================== 傳統模式（所有 AI 關閉時的後備） ====================
@@ -346,9 +347,10 @@ export class Strategy {
     downTokenId: string,
     upPrice: number,
     downPrice: number,
-    label: string
+    label: string,
+    scope: 'next' | 'current'
   ): TradeSignal | null {
-    const analysis = this.lastLLMAnalysis;
+    const analysis = this.lastLLMAnalysis[scope];
     if (!analysis || !analysis.shouldTrade || !analysis.recommendedOutcome) {
       console.log(`[LLM] 不建議交易: ${analysis?.reasoning || 'unknown'}`);
       return null;
@@ -379,11 +381,12 @@ export class Strategy {
     upPrice: number,
     downPrice: number,
     label: string,
-    orderBooks: { up: OrderBook; down: OrderBook }
+    orderBooks: { up: OrderBook; down: OrderBook },
+    scope: 'next' | 'current'
   ): TradeSignal | null {
     // 同步執行 AI 分析（使用指定的訂單簿）
     const analysis = this.runAIAnalysisSync(state, positions, orderBooks);
-    this.lastAIAnalysis = analysis;
+    this.lastAIAnalysis[scope] = analysis;
 
     // 輸出 AI 分析摘要
     console.log(aiAnalyzer.getAnalysisSummary(analysis));

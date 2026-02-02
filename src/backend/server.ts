@@ -227,38 +227,46 @@ async function tick() {
       winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
     });
 
-    // Broadcast AI analysis if available
+    // Broadcast AI analysis (next + current)
     if (config.AI_ENABLED) {
-      const aiAnalysis = strategy.getLastAIAnalysis();
-      if (aiAnalysis) {
-        broadcast('ai_analysis', {
-          shouldTrade: aiAnalysis.shouldTrade,
-          recommendedOutcome: aiAnalysis.recommendedOutcome,
-          confidence: aiAnalysis.confidence,
-          recommendedSize: aiAnalysis.recommendedSize,
-          reasons: aiAnalysis.reasons,
-          signals: {
-            technical: aiAnalysis.signals.technical.score,
-            orderBook: aiAnalysis.signals.orderBook.score,
-            sentiment: aiAnalysis.signals.sentiment.score,
-            timing: aiAnalysis.signals.timing.score,
-          },
-        });
+      const scopes: Array<'next' | 'current'> = ['next', 'current'];
+      for (const scope of scopes) {
+        const aiAnalysis = strategy.getLastAIAnalysis(scope);
+        if (aiAnalysis) {
+          broadcast('ai_analysis', {
+            scope,
+            shouldTrade: aiAnalysis.shouldTrade,
+            recommendedOutcome: aiAnalysis.recommendedOutcome,
+            confidence: aiAnalysis.confidence,
+            recommendedSize: aiAnalysis.recommendedSize,
+            reasons: aiAnalysis.reasons,
+            signals: {
+              technical: aiAnalysis.signals.technical.score,
+              orderBook: aiAnalysis.signals.orderBook.score,
+              sentiment: aiAnalysis.signals.sentiment.score,
+              timing: aiAnalysis.signals.timing.score,
+            },
+          });
+        }
       }
     }
 
-    // Broadcast LLM analysis if available
+    // Broadcast LLM analysis (next + current)
     if (config.LLM_ENABLED) {
-      const llmAnalysis = strategy.getLastLLMAnalysis();
-      if (llmAnalysis) {
-        broadcast('llm_analysis', {
-          shouldTrade: llmAnalysis.shouldTrade,
-          recommendedOutcome: llmAnalysis.recommendedOutcome,
-          confidence: llmAnalysis.confidence,
-          recommendedSize: llmAnalysis.recommendedSize,
-          reasoning: llmAnalysis.reasoning,
-          marketSummary: llmAnalysis.marketSummary,
-        });
+      const scopes: Array<'next' | 'current'> = ['next', 'current'];
+      for (const scope of scopes) {
+        const llmAnalysis = strategy.getLastLLMAnalysis(scope);
+        if (llmAnalysis) {
+          broadcast('llm_analysis', {
+            scope,
+            shouldTrade: llmAnalysis.shouldTrade,
+            recommendedOutcome: llmAnalysis.recommendedOutcome,
+            confidence: llmAnalysis.confidence,
+            recommendedSize: llmAnalysis.recommendedSize,
+            reasoning: llmAnalysis.reasoning,
+            marketSummary: llmAnalysis.marketSummary,
+          });
+        }
       }
     }
   } catch (error) {
