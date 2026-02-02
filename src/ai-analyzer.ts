@@ -80,6 +80,20 @@ export class AIAnalyzer {
   }
 
   /**
+   * 取得訂單簿中間價
+   */
+  private getMidPrice(orderBook: OrderBook): number | null {
+    const bestBid = orderBook.bids[0]?.price ?? null;
+    const bestAsk = orderBook.asks[0]?.price ?? null;
+    if (bestBid !== null && bestAsk !== null && bestAsk > 0) {
+      return (bestBid + bestAsk) / 2;
+    }
+    if (bestBid !== null) return bestBid;
+    if (bestAsk !== null) return bestAsk;
+    return null;
+  }
+
+  /**
    * 主分析入口 - 分析市場並給出交易建議（同步版本）
    */
   analyzeSync(
@@ -94,23 +108,30 @@ export class AIAnalyzer {
       upOrderBook.bids.length, upOrderBook.asks.length, downOrderBook.bids.length, downOrderBook.asks.length);
     console.log('[AI][Positions] count=%d', positions.size);
 
+    // 實時價格：使用訂單簿中間價（若可用）
+    const upMid = this.getMidPrice(upOrderBook);
+    const downMid = this.getMidPrice(downOrderBook);
+    const upPriceRt = upMid !== null ? upMid * 100 : state.upPrice;
+    const downPriceRt = downMid !== null ? downMid * 100 : state.downPrice;
+    console.log('[AI][RealTime] upMid=%.3f, downMid=%.3f (cents: %.2f / %.2f)', upMid, downMid, upPriceRt, downPriceRt);
+
     const reasons: string[] = [];
 
     // 記錄當前價格
-    if (state.upTokenId) this.recordPrice(state.upTokenId, state.upPrice);
-    if (state.downTokenId) this.recordPrice(state.downTokenId, state.downPrice);
+    if (state.upTokenId) this.recordPrice(state.upTokenId, upPriceRt);
+    if (state.downTokenId) this.recordPrice(state.downTokenId, downPriceRt);
 
     // 1. 技術分析
-    const technicalUp = this.analyzeTechnical(state.upTokenId, state.upPrice);
-    const technicalDown = this.analyzeTechnical(state.downTokenId, state.downPrice);
+    const technicalUp = this.analyzeTechnical(state.upTokenId, upPriceRt);
+    const technicalDown = this.analyzeTechnical(state.downTokenId, downPriceRt);
 
     // 2. 訂單簿分析
-    const orderBookUp = this.analyzeOrderBook(upOrderBook, state.upPrice);
-    const orderBookDown = this.analyzeOrderBook(downOrderBook, state.downPrice);
+    const orderBookUp = this.analyzeOrderBook(upOrderBook, upPriceRt);
+    const orderBookDown = this.analyzeOrderBook(downOrderBook, downPriceRt);
 
     // 3. 情緒分析
-    const sentimentUp = this.analyzeSentiment(state.upPrice, 'Up');
-    const sentimentDown = this.analyzeSentiment(state.downPrice, 'Down');
+    const sentimentUp = this.analyzeSentiment(upPriceRt, 'Up');
+    const sentimentDown = this.analyzeSentiment(downPriceRt, 'Down');
 
     // 4. 時機分析
     const timing = this.analyzeTiming(state);
