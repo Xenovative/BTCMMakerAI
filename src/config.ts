@@ -12,7 +12,7 @@ export const config = {
   FUNDER_ADDRESS: process.env.FUNDER_ADDRESS || '', // Polymarket proxy wallet address
 
   // Trading parameters
-  MAX_BUY_PRICE: Number(process.env.MAX_BUY_PRICE) || 50, // cents
+  MAX_BUY_PRICE: Number(process.env.MAX_BUY_PRICE) || 55, // cents (更寬鬆)
   PROFIT_TARGET: Number(process.env.PROFIT_TARGET) || 2, // cents
   STOP_LOSS: Number(process.env.STOP_LOSS) || 5, // cents - 止損點（虧損超過此值時賣出）
   MAX_POSITION_SIZE: Number(process.env.MAX_POSITION_SIZE) || 100,
@@ -22,7 +22,7 @@ export const config = {
 
   // 滑點保護
   MAX_SLIPPAGE_CENTS: Number(process.env.MAX_SLIPPAGE_CENTS) || 1, // 最大允許滑點
-  MIN_ORDERBOOK_DEPTH: Number(process.env.MIN_ORDERBOOK_DEPTH) || 50, // 最小訂單簿深度
+  MIN_ORDERBOOK_DEPTH: Number(process.env.MIN_ORDERBOOK_DEPTH) || 30, // 最小訂單簿深度（放寬）
 
   // 手續費計算 (Polymarket: maker 0%, taker ~1%)
   TAKER_FEE_PERCENT: 1, // 1%
@@ -33,8 +33,8 @@ export const config = {
   MAX_REQUESTS_PER_MINUTE: 60,
 
   // 時間安全邊際
-  SELL_BEFORE_START_MS: 5000, // 開盤前 5 秒強制清倉
-  MIN_TIME_TO_TRADE_MS: 6000, // 至少距離開盤 6 秒才能交易（比清倉時間多 1 秒）
+  SELL_BEFORE_START_MS: 15000, // 開盤前 15 秒強制清倉（更早清倉以放寬進場）
+  MIN_TIME_TO_TRADE_MS: 20000, // 至少距離開盤 20 秒才能交易
 
   // Market identifiers - 可用的 Up/Down 系列
   // 'eth-up-or-down-15m' | 'eth-up-or-down-hourly' | 'solana-up-or-down-hourly' | 'spx-daily-up-or-down'

@@ -88,6 +88,12 @@ export class AIAnalyzer {
     downOrderBook: OrderBook,
     positions: Map<string, Position>
   ): AIAnalysis {
+    console.log('[AI][Input] upPrice=%d, downPrice=%d, timeToStart=%ds, timeToEnd=%ds',
+      state.upPrice, state.downPrice, Math.round(state.timeToStart / 1000), Math.round(state.timeToEnd / 1000));
+    console.log('[AI][OrderBook] up bids=%d asks=%d | down bids=%d asks=%d',
+      upOrderBook.bids.length, upOrderBook.asks.length, downOrderBook.bids.length, downOrderBook.asks.length);
+    console.log('[AI][Positions] count=%d', positions.size);
+
     const reasons: string[] = [];
 
     // 記錄當前價格

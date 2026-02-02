@@ -87,6 +87,8 @@ export class LLMAnalyzer {
     // 準備市場數據摘要
     const marketData = this.prepareMarketData(state, upOrderBook, downOrderBook, positions);
 
+    console.log('[LLM][Input]\n' + marketData);
+
     const systemPrompt = `You are an expert cryptocurrency trading analyst specializing in short-term BTC price prediction markets.
 
 Your task is to analyze market data and decide whether to trade in a 15-minute BTC Up/Down prediction market on Polymarket.
