@@ -1,23 +1,23 @@
 import WebSocket from 'ws';
+import { MarketFetcher } from '../market-fetcher.js';
 
 /**
- * 簡易 Polymarket 價格 websocket 客戶端（最佳努力）
- * - 嘗試訂閱 ticker/update 以取得 bid/ask/mid
- * - 若連線/解析失敗，僅記錄 log，不阻斷主流程
+ * Polymarket price feed with WS book + REST polling fallback.
  */
 export class LivePriceFeed {
   private ws: WebSocket | null = null;
-  // Use /ws/market endpoint; channel determined by payload type
   private readonly url = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
   private connected = false;
   private pendingTokens: Set<string> = new Set();
+  private subscribedTokens: Set<string> = new Set();
   private prices: Record<string, number> = {}; // tokenId -> price in cents
   private bestBids: Record<string, number> = {};
   private bestAsks: Record<string, number> = {};
+  private fetcher = new MarketFetcher();
+  private restInterval: NodeJS.Timeout | null = null;
 
   connect(): void {
     if (this.ws) return;
-
     console.log('[WS] Attempting to connect to:', this.url);
     this.ws = new WebSocket(this.url);
 
@@ -51,7 +51,11 @@ export class LivePriceFeed {
   }
 
   subscribe(tokenIds: string[]): void {
-    tokenIds.forEach((t) => this.pendingTokens.add(t));
+    tokenIds.forEach((t) => {
+      this.pendingTokens.add(t);
+      this.subscribedTokens.add(t);
+    });
+    this.startRestPolling();
     if (!this.connected || !this.ws) return;
 
     const payload: any = {
@@ -70,7 +74,7 @@ export class LivePriceFeed {
     const tokenId = msg?.asset_id || msg?.product_id || msg?.token_id || msg?.tokenId;
     if (!tokenId) return;
 
-    // If a last price / price_change is provided, use it as seed (allow 0.5–99.5¢)
+    // Use last trade price as seed when present
     const priceVal = msg?.price ?? msg?.last_price ?? (Array.isArray(msg?.price_changes) ? msg.price_changes[0]?.price : null);
     if (priceVal != null) {
       const price = Number(priceVal);
@@ -97,30 +101,50 @@ export class LivePriceFeed {
 
     const bidNum = this.bestBids[tokenId];
     const askNum = this.bestAsks[tokenId];
-
-    // If both sides known, use mid
-    if (bidNum == null || askNum == null) return; // wait until both sides seen
+    if (bidNum == null || askNum == null) return;
 
     const mid = (bidNum + askNum) / 2;
     const priceCents = mid < 5 ? mid * 100 : mid;
     this.setPrice(tokenId, priceCents, true);
   }
 
+  private startRestPolling(intervalMs = 5000): void {
+    if (this.restInterval) return;
+    this.restInterval = setInterval(() => {
+      void this.pollOrderBooks();
+    }, intervalMs);
+  }
+
+  private async pollOrderBooks(): Promise<void> {
+    if (this.subscribedTokens.size === 0) return;
+    for (const tokenId of Array.from(this.subscribedTokens)) {
+      try {
+        const ob = await this.fetcher.getOrderBook(tokenId);
+        const bid = ob?.bids?.[0]?.price;
+        const ask = ob?.asks?.[0]?.price;
+        if (bid == null || ask == null) continue;
+        const bidNum = parseFloat(bid);
+        const askNum = parseFloat(ask);
+        const spreadCents = (askNum - bidNum) * 100;
+        if (!isFinite(spreadCents) || spreadCents <= 0 || spreadCents > 20) continue;
+        const midCents = ((bidNum + askNum) / 2) * 100;
+        this.setPrice(tokenId, midCents, true);
+      } catch (err) {
+        // ignore poll errors
+      }
+      await new Promise(res => setTimeout(res, 150));
+    }
+  }
+
   getPrices(): Record<string, number> {
     return { ...this.prices };
   }
 
-  /**
-   * Manually set price from order book mid (fallback when WS silent)
-   */
   setPrice(tokenId: string, priceCents: number, force = false): void {
     if (!force && this.prices[tokenId] !== undefined) return;
     this.prices[tokenId] = priceCents;
   }
 
-  /**
-   * Debug: get current price count
-   */
   getPriceCount(): number {
     return Object.keys(this.prices).length;
   }

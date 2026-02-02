@@ -85,11 +85,11 @@ async function tick() {
     if (state.currentUpTokenId && liveSnapshot[state.currentUpTokenId] != null) state.currentUpPrice = liveSnapshot[state.currentUpTokenId];
     if (state.currentDownTokenId && liveSnapshot[state.currentDownTokenId] != null) state.currentDownPrice = liveSnapshot[state.currentDownTokenId];
 
-    // Seed live feed with latest API prices (Gamma) to avoid stale 50/50 when book is sparse
-    if (state.upTokenId) livePriceFeed.setPrice(state.upTokenId, state.upPrice, true);
-    if (state.downTokenId) livePriceFeed.setPrice(state.downTokenId, state.downPrice, true);
-    if (state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, state.currentUpPrice, true);
-    if (state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, state.currentDownPrice, true);
+    // Seed live feed with latest API prices only if not already present (avoid re-forcing 50/50)
+    if (state.upTokenId) livePriceFeed.setPrice(state.upTokenId, state.upPrice, false);
+    if (state.downTokenId) livePriceFeed.setPrice(state.downTokenId, state.downPrice, false);
+    if (state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, state.currentUpPrice, false);
+    if (state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, state.currentDownPrice, false);
 
     // Broadcast market state (prices will be updated after order book fetch)
     // Initial broadcast with API prices; will be updated below after order book mids computed
