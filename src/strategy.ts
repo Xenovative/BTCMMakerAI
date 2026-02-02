@@ -53,14 +53,12 @@ export class Strategy {
    */
   calculateMomentum(tokenId: string, currentPrice: number): number {
     const history = this.lastPrices.get(tokenId) || [];
-    
-    if (history.length < 5) {
-      this.updatePriceHistory(tokenId, currentPrice);
-      return 0;
-    }
 
-    // 計算短期動量 (最近 5 個價格點)
-    const recentPrices = history.slice(-5);
+    const effectiveHistory = [...history, currentPrice];
+    const lookback = 3;
+    const recentPrices = effectiveHistory.slice(-lookback);
+    if (recentPrices.length === 0) return 0;
+
     const avgRecent = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
     const momentum = currentPrice - avgRecent;
 

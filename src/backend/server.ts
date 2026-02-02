@@ -91,19 +91,28 @@ async function tick() {
     // Fetch order books for AI analysis (if AI enabled)
     if (config.AI_ENABLED) {
       try {
-        const [upOrderBook, downOrderBook] = await Promise.all([
+        const currentEnabled = config.ALLOW_CURRENT_MARKET_TRADING && state.currentUpTokenId && state.currentDownTokenId;
+
+        const [upOrderBook, downOrderBook, currentUpOrderBook, currentDownOrderBook] = await Promise.all([
           fetcher.getOrderBook(state.upTokenId),
           fetcher.getOrderBook(state.downTokenId),
+          currentEnabled ? fetcher.getOrderBook(state.currentUpTokenId!) : Promise.resolve(null),
+          currentEnabled ? fetcher.getOrderBook(state.currentDownTokenId!) : Promise.resolve(null),
         ]);
         await delay(300);
         
         // Normalize order book format
         const normalizeOrderBook = (ob: any) => ({
-          bids: (ob.bids || []).map((b: any) => ({ price: parseFloat(b.price), size: parseFloat(b.size) })),
-          asks: (ob.asks || []).map((a: any) => ({ price: parseFloat(a.price), size: parseFloat(a.size) })),
+          bids: (ob?.bids || []).map((b: any) => ({ price: parseFloat(b.price), size: parseFloat(b.size) })),
+          asks: (ob?.asks || []).map((a: any) => ({ price: parseFloat(a.price), size: parseFloat(a.size) })),
         });
         
-        strategy.setOrderBooks(normalizeOrderBook(upOrderBook), normalizeOrderBook(downOrderBook));
+        strategy.setOrderBooks(
+          normalizeOrderBook(upOrderBook),
+          normalizeOrderBook(downOrderBook),
+          currentEnabled ? normalizeOrderBook(currentUpOrderBook) : undefined,
+          currentEnabled ? normalizeOrderBook(currentDownOrderBook) : undefined,
+        );
         
         // Update AI analyzer with trade history for win rate calculation
         aiAnalyzer.updateTradeHistory(trader.getTradeHistory());
