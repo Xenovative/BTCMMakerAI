@@ -72,8 +72,8 @@ export class LivePriceFeed {
         const price = parseFloat(change.price);
         if (tokenId && !isNaN(price)) {
           const priceCents = price < 5 ? price * 100 : price;
-          // Ignore clearly extreme prints (likely last trade, not mid)
-          if (priceCents <= 5 || priceCents >= 95) {
+          // Ignore extremes to avoid 10/90 flips
+          if (priceCents < 15 || priceCents > 85) {
             continue;
           }
           console.log('[WS][price_change] token=%s price=%s -> %d¢', tokenId, change.price, priceCents);
@@ -89,7 +89,7 @@ export class LivePriceFeed {
       const price = parseFloat(msg.price);
       if (!isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
-        if (priceCents > 5 && priceCents < 95) {
+        if (priceCents >= 15 && priceCents <= 85) {
           console.log('[WS][price] token=%s price=%s -> %d¢', tokenId, msg.price, priceCents);
           this.setPrice(tokenId, priceCents, true);
         }
