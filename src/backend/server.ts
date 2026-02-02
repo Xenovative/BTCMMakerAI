@@ -141,15 +141,15 @@ async function tick() {
         const upMid = getMid(upOrderBook);
         const downMid = getMid(downOrderBook);
         console.log('[OrderBook Mids] Next: up=%.2f¢ down=%.2f¢ (from bids/asks in $)', upMid, downMid);
-        // Don't overwrite WS prices with order book mids - only set if not already present
-        if (upMid !== null && state.upTokenId) livePriceFeed.setPrice(state.upTokenId, upMid, false);
-        if (downMid !== null && state.downTokenId) livePriceFeed.setPrice(state.downTokenId, downMid, false);
+        // Overwrite with API order book mids to avoid stale 50/50
+        if (upMid !== null && state.upTokenId) livePriceFeed.setPrice(state.upTokenId, upMid, true);
+        if (downMid !== null && state.downTokenId) livePriceFeed.setPrice(state.downTokenId, downMid, true);
         if (currentEnabled) {
           const curUpMid = getMid(currentUpOrderBook);
           const curDownMid = getMid(currentDownOrderBook);
           console.log('[OrderBook Mids] Current: up=%.2f¢ down=%.2f¢', curUpMid, curDownMid);
-          if (curUpMid !== null && state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, curUpMid, false);
-          if (curDownMid !== null && state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, curDownMid, false);
+          if (curUpMid !== null && state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, curUpMid, true);
+          if (curDownMid !== null && state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, curDownMid, true);
         }
 
         // Refresh live prices after setting from order books
