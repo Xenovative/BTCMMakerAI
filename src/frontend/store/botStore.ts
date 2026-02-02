@@ -41,6 +41,29 @@ export interface MarketState {
   timeToEnd: number;
 }
 
+export interface AIAnalysisBrief {
+  shouldTrade: boolean;
+  recommendedOutcome: 'Up' | 'Down' | null;
+  confidence: number;
+  recommendedSize: number;
+  reasons?: string[];
+  signals?: {
+    technical?: number;
+    orderBook?: number;
+    sentiment?: number;
+    timing?: number;
+  };
+}
+
+export interface LLMAnalysisBrief {
+  shouldTrade: boolean;
+  recommendedOutcome: 'Up' | 'Down' | null;
+  confidence: number;
+  recommendedSize: number;
+  reasoning: string;
+  marketSummary: string;
+}
+
 export interface BotStatus {
   running: boolean;
   connected: boolean;
@@ -56,6 +79,8 @@ interface BotStore {
   positions: Position[];
   trades: Trade[];
   market: MarketState | null;
+  aiAnalysis: AIAnalysisBrief | null;
+  llmAnalysis: LLMAnalysisBrief | null;
   ws: WebSocket | null;
   
   connect: () => void;
@@ -87,6 +112,8 @@ export const useBotStore = create<BotStore>((set, get) => ({
   positions: [],
   trades: [],
   market: null,
+  aiAnalysis: null,
+  llmAnalysis: null,
   ws: null,
 
   connect: () => {
@@ -130,6 +157,12 @@ export const useBotStore = create<BotStore>((set, get) => ({
             break;
           case 'pnl':
             set({ status: { ...get().status, totalPnl: data.totalPnl, totalTrades: data.totalTrades, winRate: data.winRate } });
+            break;
+          case 'ai_analysis':
+            set({ aiAnalysis: data });
+            break;
+          case 'llm_analysis':
+            set({ llmAnalysis: data });
             break;
         }
       } catch (err) {
