@@ -12,7 +12,7 @@ export class RTDSPriceFeed {
 
   connect(): void {
     if (this.ws) return;
-    const url = config.RTDS_WS_URL || 'wss://stream.binance.com:9443/ws/btcusdt@trade';
+    const url = config.RTDS_WS_URL || 'wss://ws-live-data.polymarket.com';
     console.log('[RTDS] Connecting to', url);
     this.ws = new WebSocket(url);
 
