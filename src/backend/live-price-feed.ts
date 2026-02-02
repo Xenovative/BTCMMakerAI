@@ -7,7 +7,8 @@ import WebSocket from 'ws';
  */
 export class LivePriceFeed {
   private ws: WebSocket | null = null;
-  private readonly url = 'wss://ws-subscriptions-clob.polymarket.com/ws/book';
+  // Use /ws/market endpoint; channel determined by payload type
+  private readonly url = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
   private connected = false;
   private pendingTokens: Set<string> = new Set();
   private prices: Record<string, number> = {}; // tokenId -> price in cents
