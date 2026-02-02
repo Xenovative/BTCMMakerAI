@@ -218,7 +218,7 @@ async function tick() {
       currentDownPrice: liveCurrentDown,
       timeToStart: state.timeToStart,
       timeToEnd: state.timeToEnd,
-      btcSpot: strategy.getLastAIAnalysis('next') ? (strategy as any).btcSpot ?? rtdsPriceFeed.getLatestPrice() : rtdsPriceFeed.getLatestPrice(),
+      btcSpot: rtdsPriceFeed.getLatestPrice(),
     });
     console.log('[Market broadcast] up=%d down=%d curUp=%d curDown=%d', liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
