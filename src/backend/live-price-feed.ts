@@ -41,7 +41,6 @@ export class LivePriceFeed {
     this.ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        console.log('[WS][MSG]', JSON.stringify(msg).slice(0, 200));
         this.handleMessage(msg);
       } catch (err) {
         // ignore malformed
@@ -66,26 +65,48 @@ export class LivePriceFeed {
   }
 
   private handleMessage(msg: any): void {
-    // Book channel messages: expect bids/asks, keyed by token/asset id
-    const tokenId = msg?.product_id || msg?.token_id || msg?.tokenId || msg?.asset_id;
-    if (!tokenId) return;
+    // Handle price_changes array format
+    if (msg.price_changes && Array.isArray(msg.price_changes)) {
+      for (const change of msg.price_changes) {
+        const tokenId = change.asset_id;
+        const price = parseFloat(change.price);
+        if (tokenId && !isNaN(price)) {
+          const priceCents = price < 5 ? price * 100 : price;
+          this.prices[tokenId] = priceCents;
+        }
+      }
+      return;
+    }
 
-    // Book updates often include bids/asks arrays; compute mid
-    const bids = msg?.bids || msg?.b || [];
-    const asks = msg?.asks || msg?.a || [];
-    const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
-    const bestAsk = asks[0]?.price ?? asks[0]?.[0] ?? null;
-    if (bestBid == null && bestAsk == null) return;
-    const bidNum = bestBid != null ? Number(bestBid) : null;
-    const askNum = bestAsk != null ? Number(bestAsk) : null;
-    let mid: number | null = null;
-    if (bidNum != null && askNum != null) mid = (bidNum + askNum) / 2;
-    else if (bidNum != null) mid = bidNum;
-    else if (askNum != null) mid = askNum;
-    if (mid === null) return;
+    // Handle direct price update
+    const tokenId = msg?.asset_id || msg?.product_id || msg?.token_id || msg?.tokenId;
+    if (tokenId && msg.price != null) {
+      const price = parseFloat(msg.price);
+      if (!isNaN(price)) {
+        const priceCents = price < 5 ? price * 100 : price;
+        this.prices[tokenId] = priceCents;
+        return;
+      }
+    }
 
-    const priceCents = mid < 5 ? mid * 100 : mid;
-    this.prices[tokenId] = priceCents;
+    // Handle bids/asks format
+    if (tokenId) {
+      const bids = msg?.bids || msg?.b || [];
+      const asks = msg?.asks || msg?.a || [];
+      const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
+      const bestAsk = asks[0]?.price ?? asks[0]?.[0] ?? null;
+      if (bestBid == null && bestAsk == null) return;
+      const bidNum = bestBid != null ? Number(bestBid) : null;
+      const askNum = bestAsk != null ? Number(bestAsk) : null;
+      let mid: number | null = null;
+      if (bidNum != null && askNum != null) mid = (bidNum + askNum) / 2;
+      else if (bidNum != null) mid = bidNum;
+      else if (askNum != null) mid = askNum;
+      if (mid === null) return;
+
+      const priceCents = mid < 5 ? mid * 100 : mid;
+      this.prices[tokenId] = priceCents;
+    }
   }
 
   getPrices(): Record<string, number> {
