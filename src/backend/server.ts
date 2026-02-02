@@ -10,6 +10,7 @@ import { Strategy } from '../strategy.js';
 import { config } from '../config.js';
 import { aiAnalyzer } from '../ai-analyzer.js';
 import { llmAnalyzer } from '../llm-analyzer.js';
+import { livePriceFeed } from './live-price-feed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,14 +67,28 @@ async function tick() {
     
     console.log(`[Tick] Up: ${state.upPrice.toFixed(1)}¢, Down: ${state.downPrice.toFixed(1)}¢, timeToStart: ${Math.round(state.timeToStart/1000)}s`);
 
-    // Broadcast market state
+    // Live price feed subscription
+    const tokenIdsToSub: string[] = [];
+    if (state.upTokenId) tokenIdsToSub.push(state.upTokenId);
+    if (state.downTokenId) tokenIdsToSub.push(state.downTokenId);
+    if (state.currentUpTokenId) tokenIdsToSub.push(state.currentUpTokenId);
+    if (state.currentDownTokenId) tokenIdsToSub.push(state.currentDownTokenId);
+    if (tokenIdsToSub.length > 0) livePriceFeed.subscribe(tokenIdsToSub);
+
+    const livePrices = livePriceFeed.getPrices();
+    const liveUp = livePrices[state.upTokenId] ?? state.upPrice;
+    const liveDown = livePrices[state.downTokenId] ?? state.downPrice;
+    const liveCurrentUp = state.currentUpTokenId ? (livePrices[state.currentUpTokenId] ?? state.currentUpPrice) : state.currentUpPrice;
+    const liveCurrentDown = state.currentDownTokenId ? (livePrices[state.currentDownTokenId] ?? state.currentDownPrice) : state.currentDownPrice;
+
+    // Broadcast market state with live prices
     broadcast('market', {
       currentMarket: state.currentMarket?.question || null,
       nextMarket: state.nextMarket?.question || null,
-      upPrice: state.upPrice,
-      downPrice: state.downPrice,
-      currentUpPrice: state.currentUpPrice,
-      currentDownPrice: state.currentDownPrice,
+      upPrice: liveUp,
+      downPrice: liveDown,
+      currentUpPrice: liveCurrentUp,
+      currentDownPrice: liveCurrentDown,
       timeToStart: state.timeToStart,
       timeToEnd: state.timeToEnd,
     });
@@ -115,6 +130,9 @@ async function tick() {
           currentEnabled ? normalizeOrderBook(currentUpOrderBook) : undefined,
           currentEnabled ? normalizeOrderBook(currentDownOrderBook) : undefined,
         );
+
+        // Set live prices for AI
+        strategy.setLivePrices(livePrices);
 
         // Pre-compute AI analyses for both scopes
         strategy.refreshAIAnalyses(state, positions);
