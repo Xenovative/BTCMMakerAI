@@ -75,7 +75,6 @@ async function tick() {
     if (state.currentDownTokenId) tokenIdsToSub.push(state.currentDownTokenId);
     if (tokenIdsToSub.length > 0) {
       livePriceFeed.subscribe(tokenIdsToSub);
-      console.log('[WS] Subscribing tokens:', tokenIdsToSub.join(','));
     }
 
     // Broadcast market state (prices will be updated after order book fetch)
@@ -147,6 +146,13 @@ async function tick() {
 
         // Refresh live prices after setting from order books
         const updatedLivePrices = livePriceFeed.getPrices();
+        const priceKeys = Object.keys(updatedLivePrices);
+        console.log('[Live Prices] Feed has %d prices. Looking for up=%s down=%s', 
+          priceKeys.length, state.upTokenId, state.downTokenId);
+        if (priceKeys.length > 0 && priceKeys.length < 10) {
+          console.log('[Live Prices] Keys:', priceKeys.join(', '));
+          console.log('[Live Prices] Values:', Object.values(updatedLivePrices).map(v => v.toFixed(2)).join(', '));
+        }
         strategy.setLivePrices(updatedLivePrices);
 
         // Update live price vars for broadcast
@@ -154,6 +160,10 @@ async function tick() {
         liveDown = updatedLivePrices[state.downTokenId] ?? state.downPrice;
         liveCurrentUp = state.currentUpTokenId ? (updatedLivePrices[state.currentUpTokenId] ?? state.currentUpPrice) : state.currentUpPrice;
         liveCurrentDown = state.currentDownTokenId ? (updatedLivePrices[state.currentDownTokenId] ?? state.currentDownPrice) : state.currentDownPrice;
+        console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f (from feed: %s/%s)', 
+          liveUp, liveDown, 
+          updatedLivePrices[state.upTokenId] ? 'WS' : 'API',
+          updatedLivePrices[state.downTokenId] ? 'WS' : 'API');
 
         // Pre-compute AI analyses for both scopes
         strategy.refreshAIAnalyses(state, positions);

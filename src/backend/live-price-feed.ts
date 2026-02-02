@@ -119,6 +119,13 @@ export class LivePriceFeed {
   setPrice(tokenId: string, priceCents: number): void {
     this.prices[tokenId] = priceCents;
   }
+
+  /**
+   * Debug: get current price count
+   */
+  getPriceCount(): number {
+    return Object.keys(this.prices).length;
+  }
 }
 
 export const livePriceFeed = new LivePriceFeed();
