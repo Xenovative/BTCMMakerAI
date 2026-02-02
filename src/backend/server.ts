@@ -134,11 +134,13 @@ async function tick() {
         };
         const upMid = getMid(upOrderBook);
         const downMid = getMid(downOrderBook);
+        console.log('[OrderBook Mids] Next: up=%.2f¢ down=%.2f¢', upMid, downMid);
         if (upMid !== null && state.upTokenId) livePriceFeed.setPrice(state.upTokenId, upMid);
         if (downMid !== null && state.downTokenId) livePriceFeed.setPrice(state.downTokenId, downMid);
         if (currentEnabled) {
           const curUpMid = getMid(currentUpOrderBook);
           const curDownMid = getMid(currentDownOrderBook);
+          console.log('[OrderBook Mids] Current: up=%.2f¢ down=%.2f¢', curUpMid, curDownMid);
           if (curUpMid !== null && state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, curUpMid);
           if (curDownMid !== null && state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, curDownMid);
         }

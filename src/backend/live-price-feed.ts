@@ -16,11 +16,12 @@ export class LivePriceFeed {
   connect(): void {
     if (this.ws) return;
 
+    console.log('[WS] Attempting to connect to:', this.url);
     this.ws = new WebSocket(this.url);
 
     this.ws.on('open', () => {
       this.connected = true;
-      console.log('[WS] Price feed connected');
+      console.log('[WS] Price feed connected successfully');
       if (this.pendingTokens.size > 0) {
         this.subscribe(Array.from(this.pendingTokens));
       }
@@ -29,12 +30,12 @@ export class LivePriceFeed {
     this.ws.on('close', () => {
       this.connected = false;
       this.ws = null;
-      console.log('[WS] Price feed disconnected, retry in 5s');
-      setTimeout(() => this.connect(), 5000);
+      console.log('[WS] Price feed disconnected, will NOT retry (using order book mids instead)');
+      // Don't retry - we have order book fallback
     });
 
     this.ws.on('error', (err) => {
-      console.error('[WS] Price feed error:', err);
+      console.warn('[WS] Price feed error (falling back to order book mids):', err.message);
     });
 
     this.ws.on('message', (data) => {
