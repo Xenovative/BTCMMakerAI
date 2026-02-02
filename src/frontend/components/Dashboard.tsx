@@ -159,7 +159,7 @@ export function Dashboard() {
                     </div>
                     <span className="text-xs text-gray-400">{market.currentMarket || 'N/A'}</span>
                   </div>
-                  <div className="text-3xl font-bold text-white">{market.currentUpPrice.toFixed(1)}¢</div>
+                  <div className="text-3xl font-bold text-white">{(market.currentUpPrice ?? market.upPrice).toFixed(1)}¢</div>
                 </div>
                 <div className="p-4 bg-red-900/20 rounded-lg border border-red-500/30">
                   <div className="flex items-center justify-between mb-1">
@@ -169,7 +169,7 @@ export function Dashboard() {
                     </div>
                     <span className="text-xs text-gray-400">{market.currentMarket || 'N/A'}</span>
                   </div>
-                  <div className="text-3xl font-bold text-white">{market.currentDownPrice.toFixed(1)}¢</div>
+                  <div className="text-3xl font-bold text-white">{(market.currentDownPrice ?? market.downPrice).toFixed(1)}¢</div>
                 </div>
               </div>
 
@@ -295,20 +295,20 @@ export function Dashboard() {
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-gray-400 text-sm">信心</div>
-                        <div className="text-white font-semibold">{la.confidence.toFixed(0)}%</div>
+                        <div className="text-white font-semibold">{(la?.confidence ?? 0).toFixed(0)}%</div>
                       </div>
-                      {renderConfidenceBar(la.confidence)}
+                      {renderConfidenceBar(la?.confidence ?? 0)}
                       <div className="flex items-center justify-between">
                         <div className="text-gray-400 text-sm">建議倉位</div>
-                        <div className="text-white font-semibold">{la.recommendedSize} 股</div>
+                        <div className="text-white font-semibold">{la?.recommendedSize ?? 0} 股</div>
                       </div>
                       <div className="text-gray-300 text-sm bg-gray-800/50 p-2 rounded border border-gray-700 min-h-[56px]">
                         <div className="text-xs text-gray-500 mb-1">摘要</div>
-                        <div>{la.marketSummary}</div>
+                        <div>{la?.marketSummary || 'N/A'}</div>
                       </div>
                       <div className="text-gray-300 text-sm bg-purple-900/20 p-2 rounded border border-purple-500/30 min-h-[56px]">
                         <div className="text-xs text-purple-200 mb-1">推論</div>
-                        <div>{la.reasoning}</div>
+                        <div>{la?.reasoning || 'N/A'}</div>
                       </div>
                     </>
                   ) : (
@@ -359,12 +359,12 @@ export function Dashboard() {
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-gray-400 text-sm">信心</div>
-                        <div className="text-white font-semibold">{aa.confidence.toFixed(0)}%</div>
+                        <div className="text-white font-semibold">{(aa?.confidence ?? 0).toFixed(0)}%</div>
                       </div>
-                      {renderConfidenceBar(aa.confidence)}
+                      {renderConfidenceBar(aa?.confidence ?? 0)}
                       <div className="flex items-center justify-between">
                         <div className="text-gray-400 text-sm">建議倉位</div>
-                        <div className="text-white font-semibold">{aa.recommendedSize} 股</div>
+                        <div className="text-white font-semibold">{aa?.recommendedSize ?? 0} 股</div>
                       </div>
                       {aa.reasons && aa.reasons.length > 0 && (
                         <div className="text-gray-300 text-sm bg-gray-800/50 p-3 rounded-lg border border-gray-700">

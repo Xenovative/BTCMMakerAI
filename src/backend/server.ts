@@ -72,6 +72,8 @@ async function tick() {
       nextMarket: state.nextMarket?.question || null,
       upPrice: state.upPrice,
       downPrice: state.downPrice,
+      currentUpPrice: state.currentUpPrice,
+      currentDownPrice: state.currentDownPrice,
       timeToStart: state.timeToStart,
       timeToEnd: state.timeToEnd,
     });
