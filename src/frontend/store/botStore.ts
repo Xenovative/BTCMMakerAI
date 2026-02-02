@@ -37,6 +37,8 @@ export interface MarketState {
   nextMarket: string | null;
   upPrice: number;
   downPrice: number;
+  currentUpPrice: number;
+  currentDownPrice: number;
   timeToStart: number;
   timeToEnd: number;
 }
@@ -64,6 +66,8 @@ export interface LLMAnalysisBrief {
   marketSummary: string;
 }
 
+export type AnalysisScope = 'next' | 'current';
+
 export interface BotStatus {
   running: boolean;
   connected: boolean;
@@ -79,8 +83,8 @@ interface BotStore {
   positions: Position[];
   trades: Trade[];
   market: MarketState | null;
-  aiAnalysis: AIAnalysisBrief | null;
-  llmAnalysis: LLMAnalysisBrief | null;
+  aiAnalysis: Partial<Record<AnalysisScope, AIAnalysisBrief>>;
+  llmAnalysis: Partial<Record<AnalysisScope, LLMAnalysisBrief>>;
   ws: WebSocket | null;
   
   connect: () => void;
@@ -112,8 +116,8 @@ export const useBotStore = create<BotStore>((set, get) => ({
   positions: [],
   trades: [],
   market: null,
-  aiAnalysis: null,
-  llmAnalysis: null,
+  aiAnalysis: {},
+  llmAnalysis: {},
   ws: null,
 
   connect: () => {
@@ -159,10 +163,10 @@ export const useBotStore = create<BotStore>((set, get) => ({
             set({ status: { ...get().status, totalPnl: data.totalPnl, totalTrades: data.totalTrades, winRate: data.winRate } });
             break;
           case 'ai_analysis':
-            set({ aiAnalysis: data });
+            set({ aiAnalysis: { ...get().aiAnalysis, [data.scope || 'next']: data } });
             break;
           case 'llm_analysis':
-            set({ llmAnalysis: data });
+            set({ llmAnalysis: { ...get().llmAnalysis, [data.scope || 'next']: data } });
             break;
         }
       } catch (err) {

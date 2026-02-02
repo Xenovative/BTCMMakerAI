@@ -150,20 +150,49 @@ export function Dashboard() {
               </div>
 
               {/* Prices */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-5 h-5 text-green-400" />
-                    <span className="text-green-400 font-bold">UP</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-green-400" />
+                      <span className="text-green-400 font-bold">當前 UP</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{market.currentMarket || 'N/A'}</span>
                   </div>
-                  <div className="text-3xl font-bold text-white">{market.upPrice.toFixed(1)}¢</div>
+                  <div className="text-3xl font-bold text-white">{market.currentUpPrice.toFixed(1)}¢</div>
                 </div>
                 <div className="p-4 bg-red-900/20 rounded-lg border border-red-500/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="w-5 h-5 text-red-400" />
-                    <span className="text-red-400 font-bold">DOWN</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <TrendingDown className="w-5 h-5 text-red-400" />
+                      <span className="text-red-400 font-bold">當前 DOWN</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{market.currentMarket || 'N/A'}</span>
                   </div>
-                  <div className="text-3xl font-bold text-white">{market.downPrice.toFixed(1)}¢</div>
+                  <div className="text-3xl font-bold text-white">{market.currentDownPrice.toFixed(1)}¢</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <div className="p-4 bg-green-900/10 rounded-lg border border-green-500/20">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-300" />
+                      <span className="text-green-300 font-semibold">下一 UP</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{market.nextMarket || 'N/A'}</span>
+                  </div>
+                  <div className="text-2xl font-semibold text-white">{market.upPrice.toFixed(1)}¢</div>
+                </div>
+                <div className="p-4 bg-red-900/10 rounded-lg border border-red-500/20">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <TrendingDown className="w-4 h-4 text-red-300" />
+                      <span className="text-red-300 font-semibold">下一 DOWN</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{market.nextMarket || 'N/A'}</span>
+                  </div>
+                  <div className="text-2xl font-semibold text-white">{market.downPrice.toFixed(1)}¢</div>
                 </div>
               </div>
             </div>
@@ -236,45 +265,61 @@ export function Dashboard() {
               <Brain className="w-5 h-5 text-purple-300" />
               <h3 className="text-lg font-bold text-white">LLM 分析</h3>
             </div>
-            <span className={`text-xs px-3 py-1 rounded-full ${llmAnalysis?.shouldTrade ? 'bg-green-600/40 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
-              {llmAnalysis?.shouldTrade ? '建議交易' : '觀望'}
-            </span>
+            <div className="flex gap-2 text-xs text-gray-400">
+              <span className="px-2 py-1 rounded-full bg-gray-800">當前</span>
+              <span className="px-2 py-1 rounded-full bg-gray-800">下一</span>
+            </div>
           </div>
 
-          {llmAnalysis ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-gray-400 text-sm">方向</div>
-                <div className="flex items-center gap-2 text-white font-semibold">
-                  {llmAnalysis.recommendedOutcome === 'Up' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
-                  <span className={llmAnalysis.recommendedOutcome === 'Up' ? 'text-green-400' : 'text-red-400'}>
-                    {llmAnalysis.recommendedOutcome || 'N/A'}
-                  </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(['current', 'next'] as const).map(scope => {
+              const la = llmAnalysis[scope];
+              return (
+                <div key={scope} className="space-y-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="text-gray-400 text-sm">{scope === 'current' ? '當前市場' : '下一市場'}</div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${la?.shouldTrade ? 'bg-green-600/40 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
+                      {la?.shouldTrade ? '建議交易' : '觀望'}
+                    </span>
+                  </div>
+                  {la ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-sm">方向</div>
+                        <div className="flex items-center gap-2 text-white font-semibold">
+                          {la.recommendedOutcome === 'Up' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
+                          <span className={la.recommendedOutcome === 'Up' ? 'text-green-400' : 'text-red-400'}>
+                            {la.recommendedOutcome || 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-sm">信心</div>
+                        <div className="text-white font-semibold">{la.confidence.toFixed(0)}%</div>
+                      </div>
+                      {renderConfidenceBar(la.confidence)}
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-sm">建議倉位</div>
+                        <div className="text-white font-semibold">{la.recommendedSize} 股</div>
+                      </div>
+                      <div className="text-gray-300 text-sm bg-gray-800/50 p-2 rounded border border-gray-700 min-h-[56px]">
+                        <div className="text-xs text-gray-500 mb-1">摘要</div>
+                        <div>{la.marketSummary}</div>
+                      </div>
+                      <div className="text-gray-300 text-sm bg-purple-900/20 p-2 rounded border border-purple-500/30 min-h-[56px]">
+                        <div className="text-xs text-purple-200 mb-1">推論</div>
+                        <div>{la.reasoning}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-gray-500 text-sm flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" /> 等待 {scope === 'current' ? '當前' : '下一'} LLM 分析...
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="text-gray-400 text-sm">信心</div>
-                <div className="text-white font-semibold">{llmAnalysis.confidence.toFixed(0)}%</div>
-              </div>
-              {renderConfidenceBar(llmAnalysis.confidence)}
-              <div className="flex items-center justify-between">
-                <div className="text-gray-400 text-sm">建議倉位</div>
-                <div className="text-white font-semibold">{llmAnalysis.recommendedSize} 股</div>
-              </div>
-              <div className="text-gray-300 text-sm bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                <div className="text-xs text-gray-500 mb-1">摘要</div>
-                <div>{llmAnalysis.marketSummary}</div>
-              </div>
-              <div className="text-gray-300 text-sm bg-purple-900/20 p-3 rounded-lg border border-purple-500/30">
-                <div className="text-xs text-purple-200 mb-1">推論</div>
-                <div>{llmAnalysis.reasoning}</div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-gray-500 text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4" /> 等待 LLM 分析...
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
 
         {/* Rule-based AI Analysis */}
@@ -284,47 +329,63 @@ export function Dashboard() {
               <Zap className="w-5 h-5 text-cyan-300" />
               <h3 className="text-lg font-bold text-white">規則式 AI 分析</h3>
             </div>
-            <span className={`text-xs px-3 py-1 rounded-full ${aiAnalysis?.shouldTrade ? 'bg-green-600/40 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
-              {aiAnalysis?.shouldTrade ? '建議交易' : '觀望'}
-            </span>
+            <div className="flex gap-2 text-xs text-gray-400">
+              <span className="px-2 py-1 rounded-full bg-gray-800">當前</span>
+              <span className="px-2 py-1 rounded-full bg-gray-800">下一</span>
+            </div>
           </div>
 
-          {aiAnalysis ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-gray-400 text-sm">方向</div>
-                <div className="flex items-center gap-2 text-white font-semibold">
-                  {aiAnalysis.recommendedOutcome === 'Up' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
-                  <span className={aiAnalysis.recommendedOutcome === 'Up' ? 'text-green-400' : 'text-red-400'}>
-                    {aiAnalysis.recommendedOutcome || 'N/A'}
-                  </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(['current', 'next'] as const).map(scope => {
+              const aa = aiAnalysis[scope];
+              return (
+                <div key={scope} className="space-y-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="text-gray-400 text-sm">{scope === 'current' ? '當前市場' : '下一市場'}</div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${aa?.shouldTrade ? 'bg-green-600/40 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
+                      {aa?.shouldTrade ? '建議交易' : '觀望'}
+                    </span>
+                  </div>
+                  {aa ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-sm">方向</div>
+                        <div className="flex items-center gap-2 text-white font-semibold">
+                          {aa.recommendedOutcome === 'Up' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
+                          <span className={aa.recommendedOutcome === 'Up' ? 'text-green-400' : 'text-red-400'}>
+                            {aa.recommendedOutcome || 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-sm">信心</div>
+                        <div className="text-white font-semibold">{aa.confidence.toFixed(0)}%</div>
+                      </div>
+                      {renderConfidenceBar(aa.confidence)}
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-sm">建議倉位</div>
+                        <div className="text-white font-semibold">{aa.recommendedSize} 股</div>
+                      </div>
+                      {aa.reasons && aa.reasons.length > 0 && (
+                        <div className="text-gray-300 text-sm bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                          <div className="text-xs text-gray-500 mb-1">理由</div>
+                          <ul className="list-disc list-inside space-y-1">
+                            {aa.reasons.slice(0, 4).map((r: string, i: number) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-gray-500 text-sm flex items-center gap-2">
+                      <Zap className="w-4 h-4" /> 等待 {scope === 'current' ? '當前' : '下一'} AI 分析...
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="text-gray-400 text-sm">信心</div>
-                <div className="text-white font-semibold">{aiAnalysis.confidence.toFixed(0)}%</div>
-              </div>
-              {renderConfidenceBar(aiAnalysis.confidence)}
-              <div className="flex items-center justify-between">
-                <div className="text-gray-400 text-sm">建議倉位</div>
-                <div className="text-white font-semibold">{aiAnalysis.recommendedSize} 股</div>
-              </div>
-              {aiAnalysis.reasons && aiAnalysis.reasons.length > 0 && (
-                <div className="text-gray-300 text-sm bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                  <div className="text-xs text-gray-500 mb-1">理由</div>
-                  <ul className="list-disc list-inside space-y-1">
-                    {aiAnalysis.reasons.slice(0, 4).map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-gray-500 text-sm flex items-center gap-2">
-              <Zap className="w-4 h-4" /> 等待 AI 分析...
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
