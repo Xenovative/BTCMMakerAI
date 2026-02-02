@@ -73,7 +73,10 @@ async function tick() {
     if (state.downTokenId) tokenIdsToSub.push(state.downTokenId);
     if (state.currentUpTokenId) tokenIdsToSub.push(state.currentUpTokenId);
     if (state.currentDownTokenId) tokenIdsToSub.push(state.currentDownTokenId);
-    if (tokenIdsToSub.length > 0) livePriceFeed.subscribe(tokenIdsToSub);
+    if (tokenIdsToSub.length > 0) {
+      livePriceFeed.subscribe(tokenIdsToSub);
+      console.log('[WS] Subscribing tokens:', tokenIdsToSub.join(','));
+    }
 
     // Broadcast market state (prices will be updated after order book fetch)
     // Initial broadcast with API prices; will be updated below after order book mids computed
@@ -176,6 +179,7 @@ async function tick() {
       timeToStart: state.timeToStart,
       timeToEnd: state.timeToEnd,
     });
+    console.log('[Market broadcast] up=%d down=%d curUp=%d curDown=%d', liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
     // Broadcast positions
     const positionsArray = Array.from(positions.values()).map((pos) => ({
