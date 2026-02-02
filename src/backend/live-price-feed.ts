@@ -7,7 +7,7 @@ import WebSocket from 'ws';
  */
 export class LivePriceFeed {
   private ws: WebSocket | null = null;
-  private readonly url = 'wss://clob.polymarket.com/stream';
+  private readonly url = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
   private connected = false;
   private pendingTokens: Set<string> = new Set();
   private prices: Record<string, number> = {}; // tokenId -> price in cents
@@ -39,6 +39,7 @@ export class LivePriceFeed {
     this.ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
+        console.log('[WS][MSG]', JSON.stringify(msg).slice(0, 200));
         this.handleMessage(msg);
       } catch (err) {
         // ignore malformed
@@ -51,13 +52,8 @@ export class LivePriceFeed {
     if (!this.connected || !this.ws) return;
 
     const payload: any = {
-      type: 'subscribe',
-      channels: [
-        {
-          name: 'ticker',
-          product_ids: tokenIds,
-        },
-      ],
+      type: 'market',
+      assets_ids: tokenIds,
     };
 
     try {
@@ -68,15 +64,16 @@ export class LivePriceFeed {
   }
 
   private handleMessage(msg: any): void {
-    const tokenId = msg?.product_id || msg?.token_id || msg?.tokenId;
+    // Market channel messages: expect bids/asks or mid_price, keyed by token/asset id
+    const tokenId = msg?.product_id || msg?.token_id || msg?.tokenId || msg?.asset_id;
     if (!tokenId) return;
 
     let mid: number | null = null;
     if (typeof msg.mid_price === 'number') mid = msg.mid_price;
-    const bestBid = typeof msg.best_bid === 'number' ? msg.best_bid : (typeof msg.bid === 'number' ? msg.bid : null);
-    const bestAsk = typeof msg.best_ask === 'number' ? msg.best_ask : (typeof msg.ask === 'number' ? msg.ask : null);
+    const bestBid = typeof msg.best_bid === 'number' ? msg.best_bid : (typeof msg.bid === 'number' ? msg.bid : msg?.bids?.[0]?.price ?? null);
+    const bestAsk = typeof msg.best_ask === 'number' ? msg.best_ask : (typeof msg.ask === 'number' ? msg.ask : msg?.asks?.[0]?.price ?? null);
     if (mid === null && bestBid !== null && bestAsk !== null) {
-      mid = (bestBid + bestAsk) / 2;
+      mid = (Number(bestBid) + Number(bestAsk)) / 2;
     }
     if (mid === null) return;
 
@@ -86,6 +83,13 @@ export class LivePriceFeed {
 
   getPrices(): Record<string, number> {
     return { ...this.prices };
+  }
+
+  /**
+   * Manually set price from order book mid (fallback when WS silent)
+   */
+  setPrice(tokenId: string, priceCents: number): void {
+    this.prices[tokenId] = priceCents;
   }
 }
 

@@ -75,23 +75,12 @@ async function tick() {
     if (state.currentDownTokenId) tokenIdsToSub.push(state.currentDownTokenId);
     if (tokenIdsToSub.length > 0) livePriceFeed.subscribe(tokenIdsToSub);
 
-    const livePrices = livePriceFeed.getPrices();
-    const liveUp = livePrices[state.upTokenId] ?? state.upPrice;
-    const liveDown = livePrices[state.downTokenId] ?? state.downPrice;
-    const liveCurrentUp = state.currentUpTokenId ? (livePrices[state.currentUpTokenId] ?? state.currentUpPrice) : state.currentUpPrice;
-    const liveCurrentDown = state.currentDownTokenId ? (livePrices[state.currentDownTokenId] ?? state.currentDownPrice) : state.currentDownPrice;
-
-    // Broadcast market state with live prices
-    broadcast('market', {
-      currentMarket: state.currentMarket?.question || null,
-      nextMarket: state.nextMarket?.question || null,
-      upPrice: liveUp,
-      downPrice: liveDown,
-      currentUpPrice: liveCurrentUp,
-      currentDownPrice: liveCurrentDown,
-      timeToStart: state.timeToStart,
-      timeToEnd: state.timeToEnd,
-    });
+    // Broadcast market state (prices will be updated after order book fetch)
+    // Initial broadcast with API prices; will be updated below after order book mids computed
+    let liveUp = state.upPrice;
+    let liveDown = state.downPrice;
+    let liveCurrentUp = state.currentUpPrice;
+    let liveCurrentDown = state.currentDownPrice;
 
     // 從 API 同步持倉（只同步當前和下一個市場，避免 rate limit）
     await trader.syncPositionsFromApi(state.upTokenId, state.downTokenId, state.upPrice, state.downPrice);
@@ -131,8 +120,35 @@ async function tick() {
           currentEnabled ? normalizeOrderBook(currentDownOrderBook) : undefined,
         );
 
-        // Set live prices for AI
-        strategy.setLivePrices(livePrices);
+        // Compute mids from order books as fallback for live prices
+        const getMid = (ob: any) => {
+          const bid = ob?.bids?.[0]?.price;
+          const ask = ob?.asks?.[0]?.price;
+          if (bid != null && ask != null) return ((parseFloat(bid) + parseFloat(ask)) / 2) * 100;
+          if (bid != null) return parseFloat(bid) * 100;
+          if (ask != null) return parseFloat(ask) * 100;
+          return null;
+        };
+        const upMid = getMid(upOrderBook);
+        const downMid = getMid(downOrderBook);
+        if (upMid !== null && state.upTokenId) livePriceFeed.setPrice(state.upTokenId, upMid);
+        if (downMid !== null && state.downTokenId) livePriceFeed.setPrice(state.downTokenId, downMid);
+        if (currentEnabled) {
+          const curUpMid = getMid(currentUpOrderBook);
+          const curDownMid = getMid(currentDownOrderBook);
+          if (curUpMid !== null && state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, curUpMid);
+          if (curDownMid !== null && state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, curDownMid);
+        }
+
+        // Refresh live prices after setting from order books
+        const updatedLivePrices = livePriceFeed.getPrices();
+        strategy.setLivePrices(updatedLivePrices);
+
+        // Update live price vars for broadcast
+        liveUp = updatedLivePrices[state.upTokenId] ?? state.upPrice;
+        liveDown = updatedLivePrices[state.downTokenId] ?? state.downPrice;
+        liveCurrentUp = state.currentUpTokenId ? (updatedLivePrices[state.currentUpTokenId] ?? state.currentUpPrice) : state.currentUpPrice;
+        liveCurrentDown = state.currentDownTokenId ? (updatedLivePrices[state.currentDownTokenId] ?? state.currentDownPrice) : state.currentDownPrice;
 
         // Pre-compute AI analyses for both scopes
         strategy.refreshAIAnalyses(state, positions);
@@ -148,6 +164,18 @@ async function tick() {
         console.log('[AI] Failed to fetch order books:', (e as Error).message);
       }
     }
+
+    // Broadcast market state with live prices (after order book mids computed)
+    broadcast('market', {
+      currentMarket: state.currentMarket?.question || null,
+      nextMarket: state.nextMarket?.question || null,
+      upPrice: liveUp,
+      downPrice: liveDown,
+      currentUpPrice: liveCurrentUp,
+      currentDownPrice: liveCurrentDown,
+      timeToStart: state.timeToStart,
+      timeToEnd: state.timeToEnd,
+    });
 
     // Broadcast positions
     const positionsArray = Array.from(positions.values()).map((pos) => ({
