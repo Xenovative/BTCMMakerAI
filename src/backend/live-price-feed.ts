@@ -12,6 +12,8 @@ export class LivePriceFeed {
   private connected = false;
   private pendingTokens: Set<string> = new Set();
   private prices: Record<string, number> = {}; // tokenId -> price in cents
+  private bestBids: Record<string, number> = {};
+  private bestAsks: Record<string, number> = {};
 
   connect(): void {
     if (this.ws) return;
@@ -73,11 +75,18 @@ export class LivePriceFeed {
     const asks = msg?.asks || msg?.a || [];
     const bestBid = bids[0]?.price ?? bids[0]?.[0] ?? null;
     const bestAsk = asks[0]?.price ?? asks[0]?.[0] ?? null;
-    if (bestBid == null || bestAsk == null) return; // need both sides for reliable mid
 
-    const bidNum = Number(bestBid);
-    const askNum = Number(bestAsk);
-    if (Number.isNaN(bidNum) || Number.isNaN(askNum)) return;
+    if (bestBid != null && !Number.isNaN(Number(bestBid))) {
+      this.bestBids[tokenId] = Number(bestBid);
+    }
+    if (bestAsk != null && !Number.isNaN(Number(bestAsk))) {
+      this.bestAsks[tokenId] = Number(bestAsk);
+    }
+
+    const bidNum = this.bestBids[tokenId];
+    const askNum = this.bestAsks[tokenId];
+    if (bidNum == null || askNum == null) return; // wait until both sides seen
+
     const mid = (bidNum + askNum) / 2;
     const priceCents = mid < 5 ? mid * 100 : mid;
     this.setPrice(tokenId, priceCents, true);
