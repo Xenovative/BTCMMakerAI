@@ -259,6 +259,7 @@ export class Strategy {
 
     const launch = (scope: 'next' | 'current', orderBooks?: { up: OrderBook; down: OrderBook }) => {
       if (!orderBooks) return;
+      if (scope === 'current' && state.timeToEnd < 180_000) return; // skip current market if <3 minutes left
       if (this.pendingLLMAnalysis[scope]) return; // already running
       this.pendingLLMAnalysis[scope] = llmAnalyzer.analyze(state, orderBooks.up, orderBooks.down, positions)
         .then(analysis => {

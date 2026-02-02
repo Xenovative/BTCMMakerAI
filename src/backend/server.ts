@@ -35,7 +35,7 @@ const strategy = new Strategy();
 
 // 購買鎖 - 防止同一市場重複購買
 let buyingInProgress = false;
-let lastBoughtMarketId: string | null = null;
+// Removed single-market lock to allow multiple concurrent markets
 
 // Connected clients
 const clients = new Set<WebSocket>();
@@ -227,14 +227,8 @@ async function tick() {
     }));
     broadcast('positions', positionsArray);
 
-    // 當前市場 ID
+    // 當前市場 ID（僅供日誌使用）
     const marketId = state.nextMarket?.conditionId || state.currentMarket?.conditionId || '';
-    
-    // 如果市場改變了，重置購買鎖
-    if (lastBoughtMarketId && lastBoughtMarketId !== marketId) {
-      console.log(`[重置] 市場已改變，允許新購買`);
-      lastBoughtMarketId = null;
-    }
 
     // 檢查現有持倉是否需要補掛 Limit Sell 或清理剩餘
     for (const [tokenId, pos] of positions) {
@@ -261,18 +255,9 @@ async function tick() {
           console.log(`[跳過] 購買中，等待上一筆完成`);
           continue;
         }
-        if (lastBoughtMarketId === marketId) {
-          console.log(`[跳過] 已在此市場購買過`);
-          continue;
-        }
-
         buyingInProgress = true;
         try {
           success = await trader.buy(signal.tokenId, signal.outcome, signal.price, signal.size);
-          if (success) {
-            lastBoughtMarketId = marketId;
-            console.log(`[鎖定] 已記錄市場: ${marketId.slice(0, 20)}...`);
-          }
         } finally {
           buyingInProgress = false;
         }
@@ -282,10 +267,6 @@ async function tick() {
           success = await trader.forceLiquidate(signal.tokenId, signal.outcome, signal.price);
         } else {
           success = await trader.sell(signal.tokenId, signal.outcome, signal.price, signal.size);
-        }
-        // 賣出後重置市場鎖，允許下一次購買
-        if (success) {
-          lastBoughtMarketId = null;
         }
       }
 
