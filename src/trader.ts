@@ -412,6 +412,11 @@ export class Trader {
   ): Promise<boolean> {
     if (config.PAPER_TRADING) {
       console.log(`📝 [PAPER] FORCE LIQUIDATE ${outcome}`);
+      const pos = this.positions.get(tokenId);
+      if (pos && pos.size > 0) {
+        const pnl = (currentPrice - pos.avgBuyPrice) * pos.size;
+        this.recordTrade(tokenId, outcome, 'SELL', currentPrice, pos.size, pnl);
+      }
       this.positions.delete(tokenId);
       this.pendingSellOrders.delete(tokenId);
       return true;

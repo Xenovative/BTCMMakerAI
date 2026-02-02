@@ -41,6 +41,7 @@ export interface MarketState {
   currentDownPrice: number;
   timeToStart: number;
   timeToEnd: number;
+  btcSpot?: number;
 }
 
 export interface AIAnalysisBrief {
@@ -159,6 +160,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
                   currentDownPrice: Number(data.currentDownPrice),
                   timeToStart: Number(data.timeToStart),
                   timeToEnd: Number(data.timeToEnd),
+                  btcSpot: data.btcSpot != null ? Number(data.btcSpot) : undefined,
                 }
               : null;
             console.log('[WS][market]', parsedMarket);

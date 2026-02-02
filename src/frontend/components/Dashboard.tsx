@@ -149,6 +149,16 @@ export function Dashboard() {
                 </div>
               </div>
 
+              {/* BTC Spot */}
+              {market.btcSpot != null && (
+                <div className="p-4 bg-gray-800/60 rounded-lg border border-yellow-400/40 flex items-center justify-between mt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-300 font-bold">BTC 即時價</span>
+                  </div>
+                  <div className="text-2xl font-bold text-yellow-300 font-mono">${market.btcSpot.toFixed(2)}</div>
+                </div>
+              )}
+
               {/* Prices */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">

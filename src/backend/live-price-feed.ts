@@ -15,14 +15,21 @@ export class LivePriceFeed {
   private bestAsks: Record<string, number> = {};
   private fetcher = new MarketFetcher();
   private restInterval: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+  private reconnectTimer: NodeJS.Timeout | null = null;
 
   connect(): void {
     if (this.ws) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     console.log('[WS] Attempting to connect to:', this.url);
     this.ws = new WebSocket(this.url);
 
     this.ws.on('open', () => {
       this.connected = true;
+      this.reconnectAttempts = 0;
       console.log('[WS] Price feed connected successfully');
       if (this.pendingTokens.size > 0) {
         this.subscribe(Array.from(this.pendingTokens));
@@ -32,12 +39,15 @@ export class LivePriceFeed {
     this.ws.on('close', () => {
       this.connected = false;
       this.ws = null;
-      console.log('[WS] Price feed disconnected, will NOT retry (using order book mids instead)');
-      // Don't retry - we have order book fallback
+      console.log('[WS] Price feed disconnected, scheduling reconnect');
+      this.scheduleReconnect();
     });
 
     this.ws.on('error', (err) => {
-      console.warn('[WS] Price feed error (falling back to order book mids):', err.message);
+      console.warn('[WS] Price feed error, scheduling reconnect:', err.message);
+      this.connected = false;
+      this.ws = null;
+      this.scheduleReconnect();
     });
 
     this.ws.on('message', (data) => {
@@ -117,6 +127,17 @@ export class LivePriceFeed {
       clearInterval(this.restInterval);
       this.restInterval = null;
     }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer || this.connected || this.ws) return;
+    this.reconnectAttempts = Math.min(this.reconnectAttempts + 1, 6);
+    const delayMs = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts - 1));
+    console.log(`[WS] Reconnect attempt ${this.reconnectAttempts} in ${delayMs}ms`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, delayMs);
   }
 
   private async pollOrderBooks(): Promise<void> {

@@ -309,69 +309,6 @@ export class Strategy {
   }
 
   /**
-   * 嘗試在指定市場買入（支持 AI 模式）
-   */
-  private tryBuyMarket(
-    state: MarketState,
-    positions: Map<string, Position>,
-    upTokenId: string,
-    downTokenId: string,
-    upPrice: number,
-    downPrice: number,
-    label: string,
-    orderBooks: { up: OrderBook; down: OrderBook } | null = null,
-    scope: 'next' | 'current' = 'next'
-  ): TradeSignal | null {
-    if (!upTokenId || !downTokenId) return null;
-    
-    const trend = this.analyzeCurrentMarketTrend(state);
-
-    // 計算考慮手續費後的最小獲利價格變動
-    const minMove = riskManager.calculateMinPriceMove(
-      upPrice,
-      config.PROFIT_TARGET,
-      config.MAX_POSITION_SIZE
-    );
-    this.minProfitableMove = minMove;
-
-    console.log(`[策略] ${label}買入條件檢查: trend=${trend}, minMove=${minMove.toFixed(2)}¢`);
-    console.log(`[策略] Up: price=${upPrice.toFixed(1)}¢, hasPosition=${positions.has(upTokenId)}`);
-    console.log(`[策略] Down: price=${downPrice.toFixed(1)}¢, hasPosition=${positions.has(downTokenId)}`);
-
-    // 檢查是否已有該市場的持倉 - 每個市場只買一次
-    const hasPositionInThisMarket = positions.has(upTokenId) || positions.has(downTokenId);
-    if (hasPositionInThisMarket) {
-      console.log(`[策略] 已有該市場持倉，不再買入`);
-      return null;
-    }
-
-    // ==================== LLM 分析模式（優先） ====================
-    if (config.LLM_ENABLED && llmAnalyzer.isAvailable() && this.lastLLMAnalysis[scope]) {
-      return this.tryBuyWithLLM(state, upTokenId, downTokenId, upPrice, downPrice, label, scope);
-    }
-
-    // ==================== 規則式 AI 分析模式（後備） ====================
-    if (config.AI_ENABLED && orderBooks) {
-      return this.tryBuyWithAI(state, positions, upTokenId, downTokenId, upPrice, downPrice, label, orderBooks, scope);
-    }
-
-    // ==================== 傳統模式（所有 AI 關閉時的後備） ====================
-    return this.tryBuyLegacy(state, upTokenId, downTokenId, upPrice, downPrice, label, trend);
-  }
-
-  /**
-   * LLM 分析買入決策
-   */
-  private tryBuyWithLLM(
-    state: MarketState,
-    upTokenId: string,
-    downTokenId: string,
-    upPrice: number,
-    downPrice: number,
-    label: string,
-    scope: 'next' | 'current'
-  ): TradeSignal | null {
-    const analysis = this.lastLLMAnalysis[scope];
     if (!analysis || !analysis.shouldTrade || !analysis.recommendedOutcome) {
       console.log(`[LLM] 不建議交易: ${analysis?.reasoning || 'unknown'}`);
       return null;
