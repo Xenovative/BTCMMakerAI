@@ -72,7 +72,8 @@ export class LivePriceFeed {
         const price = parseFloat(change.price);
         if (tokenId && !isNaN(price)) {
           const priceCents = price < 5 ? price * 100 : price;
-          this.prices[tokenId] = priceCents;
+          console.log('[WS][price_change] token=%s price=%s -> %d¢', tokenId, change.price, priceCents);
+          this.setPrice(tokenId, priceCents, true); // force from WS
         }
       }
       return;
@@ -84,7 +85,8 @@ export class LivePriceFeed {
       const price = parseFloat(msg.price);
       if (!isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
-        this.prices[tokenId] = priceCents;
+        console.log('[WS][price] token=%s price=%s -> %d¢', tokenId, msg.price, priceCents);
+        this.setPrice(tokenId, priceCents, true);
         return;
       }
     }
@@ -105,7 +107,8 @@ export class LivePriceFeed {
       if (mid === null) return;
 
       const priceCents = mid < 5 ? mid * 100 : mid;
-      this.prices[tokenId] = priceCents;
+      console.log('[WS][book mid] token=%s mid=%s -> %d¢', tokenId, mid, priceCents);
+      this.setPrice(tokenId, priceCents, true);
     }
   }
 
@@ -116,7 +119,8 @@ export class LivePriceFeed {
   /**
    * Manually set price from order book mid (fallback when WS silent)
    */
-  setPrice(tokenId: string, priceCents: number): void {
+  setPrice(tokenId: string, priceCents: number, force = false): void {
+    if (!force && this.prices[tokenId] !== undefined) return;
     this.prices[tokenId] = priceCents;
   }
 
