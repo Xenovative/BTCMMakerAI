@@ -29,6 +29,7 @@ export class Strategy {
     current: { up: OrderBook; down: OrderBook } | null;
   } = { next: null, current: null };
   private pendingLLMAnalysis: { next: Promise<LLMAnalysis> | null; current: Promise<LLMAnalysis> | null } = { next: null, current: null };
+  private livePrices: Record<string, number> = {};
 
   /**
    * 分析當前盤口走勢
@@ -232,6 +233,10 @@ export class Strategy {
     }
   }
 
+  setLivePrices(prices: Record<string, number>): void {
+    this.livePrices = prices;
+  }
+
   /**
    * 獲取最近一次 AI 分析結果
    */
@@ -395,7 +400,7 @@ export class Strategy {
     scope: 'next' | 'current'
   ): TradeSignal | null {
     // 同步執行 AI 分析（使用指定的訂單簿）
-    const analysis = this.runAIAnalysisSync(state, positions, orderBooks);
+    const analysis = this.runAIAnalysisSync(state, positions, orderBooks, this.livePrices);
     this.lastAIAnalysis[scope] = analysis;
 
     // 輸出 AI 分析摘要
@@ -426,7 +431,8 @@ export class Strategy {
   private runAIAnalysisSync(
     state: MarketState,
     positions: Map<string, Position>,
-    orderBooks: { up: OrderBook; down: OrderBook } | null
+    orderBooks: { up: OrderBook; down: OrderBook } | null,
+    livePrices?: Record<string, number>
   ): AIAnalysis {
     if (!orderBooks) {
       return {
@@ -445,7 +451,7 @@ export class Strategy {
     }
 
     // 直接調用同步版本的 analyze
-    return aiAnalyzer.analyzeSync(state, orderBooks.up, orderBooks.down, positions);
+    return aiAnalyzer.analyzeSync(state, orderBooks.up, orderBooks.down, positions, livePrices);
   }
 
   /**

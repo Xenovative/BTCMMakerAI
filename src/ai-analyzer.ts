@@ -100,7 +100,8 @@ export class AIAnalyzer {
     state: MarketState,
     upOrderBook: OrderBook,
     downOrderBook: OrderBook,
-    positions: Map<string, Position>
+    positions: Map<string, Position>,
+    livePrices?: Record<string, number> // tokenId -> price in cents
   ): AIAnalysis {
     console.log('[AI][Input] upPrice=%d, downPrice=%d, timeToStart=%ds, timeToEnd=%ds',
       state.upPrice, state.downPrice, Math.round(state.timeToStart / 1000), Math.round(state.timeToEnd / 1000));
@@ -109,10 +110,12 @@ export class AIAnalyzer {
     console.log('[AI][Positions] count=%d', positions.size);
 
     // 實時價格：使用訂單簿中間價（若可用）
+    const liveUp = livePrices?.[state.upTokenId];
+    const liveDown = livePrices?.[state.downTokenId];
     const upMid = this.getMidPrice(upOrderBook);
     const downMid = this.getMidPrice(downOrderBook);
-    const upPriceRt = upMid !== null ? upMid * 100 : state.upPrice;
-    const downPriceRt = downMid !== null ? downMid * 100 : state.downPrice;
+    const upPriceRt = liveUp ?? (upMid !== null ? upMid * 100 : state.upPrice);
+    const downPriceRt = liveDown ?? (downMid !== null ? downMid * 100 : state.downPrice);
     console.log('[AI][RealTime] upMid=%.3f, downMid=%.3f (cents: %.2f / %.2f)', upMid, downMid, upPriceRt, downPriceRt);
 
     const reasons: string[] = [];
