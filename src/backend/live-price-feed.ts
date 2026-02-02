@@ -103,16 +103,20 @@ export class LivePriceFeed {
     const askNum = this.bestAsks[tokenId];
     if (bidNum == null || askNum == null) return;
 
+    const spreadCents = (askNum - bidNum) * 100;
+    if (!isFinite(spreadCents) || spreadCents <= 0 || spreadCents > 20) return;
+
     const mid = (bidNum + askNum) / 2;
     const priceCents = mid < 5 ? mid * 100 : mid;
     this.setPrice(tokenId, priceCents, true);
   }
 
-  private startRestPolling(intervalMs = 5000): void {
-    if (this.restInterval) return;
-    this.restInterval = setInterval(() => {
-      void this.pollOrderBooks();
-    }, intervalMs);
+  private startRestPolling(): void {
+    // REST seeding disabled per request
+    if (this.restInterval) {
+      clearInterval(this.restInterval);
+      this.restInterval = null;
+    }
   }
 
   private async pollOrderBooks(): Promise<void> {
