@@ -67,7 +67,6 @@ export class LivePriceFeed {
   }
 
   private handleMessage(msg: any): void {
-    // Only use book updates (bids/asks) to derive mid
     const tokenId = msg?.asset_id || msg?.product_id || msg?.token_id || msg?.tokenId;
     if (!tokenId) return;
 
@@ -85,11 +84,26 @@ export class LivePriceFeed {
 
     const bidNum = this.bestBids[tokenId];
     const askNum = this.bestAsks[tokenId];
-    if (bidNum == null || askNum == null) return; // wait until both sides seen
 
-    const mid = (bidNum + askNum) / 2;
-    const priceCents = mid < 5 ? mid * 100 : mid;
-    this.setPrice(tokenId, priceCents, true);
+    // If both sides known, use mid
+    if (bidNum != null && askNum != null) {
+      const mid = (bidNum + askNum) / 2;
+      const priceCents = mid < 5 ? mid * 100 : mid;
+      this.setPrice(tokenId, priceCents, true);
+      return;
+    }
+
+    // Fallback: if no both-sides yet, allow price_change/price in 15-85 band
+    const priceVal = msg?.price ?? msg?.last_price ?? null;
+    if (priceVal != null) {
+      const price = Number(priceVal);
+      if (!Number.isNaN(price)) {
+        const priceCents = price < 5 ? price * 100 : price;
+        if (priceCents >= 15 && priceCents <= 85) {
+          this.setPrice(tokenId, priceCents, true);
+        }
+      }
+    }
   }
 
   getPrices(): Record<string, number> {
