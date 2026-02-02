@@ -166,7 +166,11 @@ export class LivePriceFeed {
   }
 
   setPrice(tokenId: string, priceCents: number, force = false): void {
-    if (!force && this.prices[tokenId] !== undefined) return;
+    if (!force) {
+      const current = this.prices[tokenId];
+      // If unchanged within 0.01¢, keep existing
+      if (current !== undefined && Math.abs(current - priceCents) < 0.01) return;
+    }
     this.prices[tokenId] = priceCents;
   }
 
