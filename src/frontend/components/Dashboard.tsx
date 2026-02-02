@@ -63,10 +63,10 @@ export function Dashboard() {
             <DollarSign className={`w-5 h-5 ${status.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`} />
           </div>
           <div className={`text-3xl font-bold ${status.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {status.totalPnl >= 0 ? '+' : ''}{status.totalPnl.toFixed(2)}¢
+            {status.totalPnl >= 0 ? '+' : ''}${(status.totalPnl / 100).toFixed(4)} USDC
           </div>
           <div className="text-gray-600 text-xs mt-1">
-            ${(status.totalPnl / 100).toFixed(4)} USDC
+            {(status.totalPnl >= 0 ? '+' : '') + status.totalPnl.toFixed(2)}¢
           </div>
         </div>
 

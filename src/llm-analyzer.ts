@@ -21,8 +21,9 @@ export interface LLMAnalysis {
 export class LLMAnalyzer {
   private openai: OpenAI | null = null;
   private lastAnalysis: LLMAnalysis | null = null;
+  // Cache disabled to avoid stale outputs
   private analysisCache: Map<string, { analysis: LLMAnalysis; timestamp: number }> = new Map();
-  private readonly CACHE_TTL_MS = 30000; // 30 秒緩存
+  private readonly CACHE_TTL_MS = 0;
 
   constructor() {
     if (config.OPENAI_API_KEY) {
@@ -52,18 +53,9 @@ export class LLMAnalyzer {
       return this.getDefaultAnalysis('LLM 未啟用或 API Key 未設置');
     }
 
-    // 檢查緩存
-    const cacheKey = `${state.upTokenId}-${state.downTokenId}-${Math.floor(Date.now() / this.CACHE_TTL_MS)}`;
-    const cached = this.analysisCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
-      console.log('[LLM] 使用緩存分析結果');
-      return cached.analysis;
-    }
-
     try {
       const analysis = await this.callLLM(state, upOrderBook, downOrderBook, positions);
       this.lastAnalysis = analysis;
-      this.analysisCache.set(cacheKey, { analysis, timestamp: Date.now() });
       return analysis;
     } catch (error: any) {
       console.error('[LLM] 分析失敗:', error?.message);
