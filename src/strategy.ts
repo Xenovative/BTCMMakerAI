@@ -350,12 +350,6 @@ export class Strategy {
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
 
-    // 檢查價格是否在可接受範圍
-    if (price >= config.MAX_BUY_PRICE) {
-      console.log(`[LLM] 價格過高: ${price.toFixed(1)}¢ >= ${config.MAX_BUY_PRICE}¢`);
-      return null;
-    }
-
     return {
       action: 'BUY',
       tokenId,
