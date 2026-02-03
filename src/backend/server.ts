@@ -471,6 +471,7 @@ async function startBot() {
   console.log('🚀 Starting bot...');
   botRunning = true;
   botStartTime = Date.now();
+  trader.reset();
   // Connect live price feed
   try {
     livePriceFeed.connect();
@@ -487,12 +488,8 @@ async function startBot() {
     }
   }
 
-  const loop = async () => {
-    if (!botRunning) return;
-    await tick();
-    setTimeout(loop, config.POLL_INTERVAL_MS);
-  };
-  loop();
+  await tick(); // Initial tick
+  botInterval = setInterval(tick, config.POLL_INTERVAL_MS);
 
   // Sync server time
   await fetcher.syncServerTime();
@@ -505,7 +502,6 @@ async function startBot() {
   }
 
   botRunning = true;
-  botInterval = setInterval(tick, config.POLL_INTERVAL_MS);
 
   broadcast('status', {
     running: true,
@@ -529,6 +525,8 @@ function stopBot() {
   }
 
   botRunning = false;
+  botStartTime = null;
+  trader.reset();
 
   broadcast('status', {
     running: false,

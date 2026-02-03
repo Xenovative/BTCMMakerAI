@@ -117,10 +117,11 @@ export class Strategy {
       return signals;
     }
 
-    // 情況 1a: 下一個市場開局前強制清倉
+    // 情況 1a: 下一個市場開局前強制清倉（只針對「當前市場」持倉，不清空下一市場持倉）
     if (state.nextMarket && state.timeToStart <= config.SELL_BEFORE_START_MS) {
       for (const [tokenId, position] of positions) {
-        if (position.size > 0) {
+        const isCurrent = tokenId === state.currentUpTokenId || tokenId === state.currentDownTokenId;
+        if (position.size > 0 && isCurrent) {
           signals.push({
             action: 'SELL',
             tokenId,
@@ -131,7 +132,7 @@ export class Strategy {
           });
         }
       }
-      return signals;
+      if (signals.length > 0) return signals;
     }
 
     // 情況 1b: 當前市場即將結束時強制清倉（防止持倉到結算）
@@ -524,14 +525,21 @@ export class Strategy {
     state: MarketState
   ): void {
     for (const [tokenId, position] of positions) {
+      const live = this.livePrices[tokenId];
       if (tokenId === state.upTokenId) {
-        position.currentPrice = state.upPrice;
+        position.currentPrice = state.upPrice ?? live ?? position.currentPrice;
       } else if (tokenId === state.downTokenId) {
-        position.currentPrice = state.downPrice;
+        position.currentPrice = state.downPrice ?? live ?? position.currentPrice;
       } else if (tokenId === state.currentUpTokenId) {
-        position.currentPrice = state.currentUpPrice;
+        position.currentPrice = state.currentUpPrice ?? live ?? position.currentPrice;
       } else if (tokenId === state.currentDownTokenId) {
-        position.currentPrice = state.currentDownPrice;
+        position.currentPrice = state.currentDownPrice ?? live ?? position.currentPrice;
+      } else if (live != null) {
+        position.currentPrice = live;
+      }
+
+      if (position.currentPrice === undefined || position.currentPrice === null) {
+        console.warn('[止損] 無法更新持倉價格', tokenId, position.outcome);
       }
     }
   }
