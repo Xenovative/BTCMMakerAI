@@ -61,6 +61,22 @@ export class LivePriceFeed {
     });
   }
 
+  forceReconnect(): void {
+    console.warn('[WS] Forcing reconnect');
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+      this.ws = null;
+    }
+    this.connected = false;
+    this.connect();
+  }
+
   subscribe(tokenIds: string[]): void {
     tokenIds.forEach((t) => {
       this.pendingTokens.add(t);

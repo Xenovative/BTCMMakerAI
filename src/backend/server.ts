@@ -124,6 +124,12 @@ async function tick() {
           livePriceFeed.setPrice(tid, price, true);
         }
       });
+
+      // If everything was stale (no fresh prices), force a WS reconnect
+      if (Object.keys(liveSnapshot).length === 0) {
+        console.warn('[Tick][Prices] forcing WS reconnect due to fully stale snapshot');
+        livePriceFeed.forceReconnect();
+      }
     }
 
     if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
