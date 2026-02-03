@@ -210,8 +210,8 @@ export class Trader {
       // 決定實際可賣數量：使用 balance（向下取一位小數），allowance 只用來批准
       const actualSize = rawBalance > 0.1 ? Math.floor(rawBalance * 10) / 10 : 0;
       if (actualSize < 5) {
-        console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，跳過下單`);
-        return false;
+        console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，但允許強制賣出`);
+        // 允許下單，稍後由交易所決定（可能被拒絕）
       }
 
       const targetSellPrice = buyPrice + config.PROFIT_TARGET;
