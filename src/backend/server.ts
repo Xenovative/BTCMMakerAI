@@ -82,12 +82,24 @@ async function tick() {
     }
 
     // Apply live prices to state immediately if fresh (<=30s); otherwise keep API price
-    const liveFresh = livePriceFeed.getPricesFresh(30_000);
+    const logFreshness = (label: string, tokenId?: string, apiPrice?: number) => {
+      if (!tokenId) return;
+      const age = livePriceFeed.getPriceAgeMs(tokenId);
+      const fresh = livePriceFeed.getFreshPrice(tokenId, 30_000);
+      if (fresh == null) {
+        console.log(`[Live Stale] ${label} token=${tokenId} ageMs=${age ?? 'n/a'} falling back to API=${apiPrice}`);
+      }
+    };
     const getFreshOrApi = (tokenId?: string, apiPrice?: number) => {
       if (!tokenId) return apiPrice;
       const fresh = livePriceFeed.getFreshPrice(tokenId, 30_000);
       return fresh ?? apiPrice;
     };
+
+    logFreshness('up', state.upTokenId, state.upPrice);
+    logFreshness('down', state.downTokenId, state.downPrice);
+    logFreshness('curUp', state.currentUpTokenId, state.currentUpPrice);
+    logFreshness('curDown', state.currentDownTokenId, state.currentDownPrice);
 
     state.upPrice = getFreshOrApi(state.upTokenId, state.upPrice);
     state.downPrice = getFreshOrApi(state.downTokenId, state.downPrice);

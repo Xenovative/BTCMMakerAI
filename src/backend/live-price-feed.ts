@@ -188,6 +188,12 @@ export class LivePriceFeed {
     return price;
   }
 
+  getPriceAgeMs(tokenId: string): number | undefined {
+    const ts = this.priceTimestamps[tokenId];
+    if (ts == null) return undefined;
+    return Date.now() - ts;
+  }
+
   getPricesFresh(maxAgeMs: number): Record<string, number> {
     const now = Date.now();
     const fresh: Record<string, number> = {};
