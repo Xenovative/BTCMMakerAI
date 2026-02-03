@@ -8,6 +8,7 @@ export interface BotConfig {
   profitTarget: number;
   stopLoss: number;
   maxPositionSize: number;
+  aiMinPositionSize: number;
   lossStreakCooldownMs: number;
   lossStreakThreshold: number;
   allowCurrentMarketTrading: boolean;
@@ -109,6 +110,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
     profitTarget: 2,
     stopLoss: 5,
     maxPositionSize: 100,
+    aiMinPositionSize: 1,
     lossStreakCooldownMs: 120000,
     lossStreakThreshold: 3,
     allowCurrentMarketTrading: true,
