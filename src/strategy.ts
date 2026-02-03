@@ -383,6 +383,11 @@ export class Strategy {
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
 
+    if (price >= config.MAX_BUY_PRICE) {
+      console.log(`[AI] 價格高於上限 ${config.MAX_BUY_PRICE}¢ (got ${price.toFixed(2)}¢), 不買`);
+      return null;
+    }
+
     const existingSize = positions.get(tokenId)?.size ?? 0;
     const remainingCap = Math.max(0, config.MAX_POSITION_SIZE - existingSize);
     if (remainingCap <= 0) {
