@@ -620,4 +620,10 @@ export class Trader {
       .filter((t) => t.pnl !== undefined)
       .reduce((sum, t) => sum + (t.pnl || 0), 0);
   }
+
+  reset(): void {
+    this.positions.clear();
+    this.pendingSellOrders.clear();
+    this.tradeHistory = [];
+  }
 }
