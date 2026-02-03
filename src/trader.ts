@@ -454,19 +454,9 @@ export class Trader {
     }
 
     try {
-      // 1. 取消該 token 的所有掛單
-      console.log(`🚨 強制清倉: 取消 ${outcome} 的所有掛單...`);
-      try {
-        await this.clobClient.cancelAll();
-        console.log(`✅ 已取消所有掛單`);
-      } catch (cancelError: any) {
-        console.log(`⚠️ 取消掛單失敗: ${cancelError?.message}`);
-      }
+      // 跳過全局 cancelAll，避免取消下一輪掛單；直接使用當前餘額進行賣出
 
-      // 等待掛單取消生效
-      await this.sleep(1000);
-
-      // 2. 查詢可用餘額
+      // 1. 查詢可用餘額
       const balances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
       const rawAllowance = parseFloat(balances?.allowance || '0') / 1e6;
       const sellSize = parseFloat(rawAllowance.toFixed(1));
@@ -478,7 +468,7 @@ export class Trader {
         return true;
       }
 
-      // 3. Market Sell（用較低價格確保成交）
+      // 2. Market Sell（用較低價格確保成交）
       const marketPrice = Math.max((currentPrice - 10) / 100, 0.01); // 當前價 -10¢
       console.log(`🚨 Market Sell: ${sellSize} 股 ${outcome} @ ${marketPrice.toFixed(2)}`);
 
