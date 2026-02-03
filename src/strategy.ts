@@ -342,6 +342,12 @@ export class Strategy {
     const isUp = analysis.recommendedOutcome === 'Up';
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
+    const oppositeTokenId = isUp ? downTokenId : upTokenId;
+    const oppositeSize = positions.get(oppositeTokenId)?.size ?? 0;
+    if (oppositeSize > 0) {
+      console.log(`[AI] 已持有相反倉位 ${oppositeSize.toFixed(3)} 股，先賣出再買 ${analysis.recommendedOutcome}`);
+      return null;
+    }
     const cooldown = this.lossStreaks[analysis.recommendedOutcome]?.cooldownUntil || 0;
     if (cooldown > Date.now()) {
       console.log(`[AI] 冷卻中 (${analysis.recommendedOutcome}) until ${new Date(cooldown).toISOString()}, skip buy`);
@@ -392,6 +398,12 @@ export class Strategy {
     const isUp = analysis.recommendedOutcome === 'Up';
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
+    const oppositeTokenId = isUp ? downTokenId : upTokenId;
+    const oppositeSize = positions.get(oppositeTokenId)?.size ?? 0;
+    if (oppositeSize > 0) {
+      console.log(`[AI] 已持有相反倉位 ${oppositeSize.toFixed(3)} 股，先賣出再買 ${analysis.recommendedOutcome}`);
+      return null;
+    }
 
     if (price < config.PRICE_FLOOR) {
       console.log(`[AI] 價格低於下限 ${config.PRICE_FLOOR}¢ (got ${price.toFixed(2)}¢), 不買`);
@@ -472,6 +484,11 @@ export class Strategy {
   ): TradeSignal | null {
     // 檢查 Up
     if (upPrice >= config.PRICE_FLOOR && upPrice <= config.PRICE_CEILING && upPrice < config.MAX_BUY_PRICE) {
+      const downHeld = positions.get(downTokenId)?.size ?? 0;
+      if (downHeld > 0) {
+        console.log(`[Legacy] 已持有 Down ${downHeld.toFixed(3)} 股，先賣出再買 Up`);
+        return null;
+      }
       const cooldown = this.lossStreaks['Up']?.cooldownUntil || 0;
       if (cooldown > Date.now()) {
         console.log(`[Legacy] Up 冷卻中 until ${new Date(cooldown).toISOString()}, skip buy`);
@@ -494,6 +511,11 @@ export class Strategy {
 
     // 如果 Up 價格太高，檢查 Down
     if (downPrice >= config.PRICE_FLOOR && downPrice <= config.PRICE_CEILING && downPrice < config.MAX_BUY_PRICE) {
+      const upHeld = positions.get(upTokenId)?.size ?? 0;
+      if (upHeld > 0) {
+        console.log(`[Legacy] 已持有 Up ${upHeld.toFixed(3)} 股，先賣出再買 Down`);
+        return null;
+      }
       const cooldown = this.lossStreaks['Down']?.cooldownUntil || 0;
       if (cooldown > Date.now()) {
         console.log(`[Legacy] Down 冷卻中 until ${new Date(cooldown).toISOString()}, skip buy`);
