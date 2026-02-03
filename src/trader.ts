@@ -241,7 +241,8 @@ export class Trader {
   async marketSellRemainder(
     tokenId: string,
     outcome: 'Up' | 'Down',
-    currentPrice: number
+    currentPrice: number,
+    reason: string = 'remainder'
   ): Promise<boolean> {
     if (config.PAPER_TRADING || !this.clobClient) {
       return false;
@@ -264,7 +265,7 @@ export class Trader {
       // Market Sell: 用較低價格確保成交
       const marketPrice = Math.max((currentPrice - 5) / 100, 0.01); // 當前價 -5¢
 
-      console.log(`🧹 Market Sell 清理剩餘: ${sellSize} 股 ${outcome} @ ${marketPrice.toFixed(2)}`);
+      console.log(`🧹 Market Sell (${reason}) 清理: ${sellSize} 股 ${outcome} @ ${marketPrice.toFixed(2)}`);
 
       const sellResponse = await this.clobClient.createAndPostOrder({
         tokenID: tokenId,
@@ -497,7 +498,8 @@ export class Trader {
     tokenId: string,
     outcome: 'Up' | 'Down',
     price: number,
-    size: number
+    size: number,
+    reason: string = 'signal'
   ): Promise<boolean> {
     const priceDecimal = price / 100;
 
@@ -516,6 +518,15 @@ export class Trader {
     }
 
     try {
+      const position = this.positions.get(tokenId);
+      const pnlIfSell = position ? (price - position.avgBuyPrice) * size : 0;
+      const isStopLoss = reason.toLowerCase().includes('stop');
+      const meetsTarget = position ? price >= position.avgBuyPrice + config.PROFIT_TARGET : true;
+      if (!isStopLoss && !meetsTarget) {
+        console.log(`[SELL] Skip due to no edge: price=${price} avg=${position?.avgBuyPrice} target=${config.PROFIT_TARGET} reason=${reason}`);
+        return false;
+      }
+
       const response = await this.clobClient.createAndPostOrder({
         tokenID: tokenId,
         price: priceDecimal,
@@ -523,10 +534,9 @@ export class Trader {
         side: Side.SELL,
       });
 
-      const position = this.positions.get(tokenId);
-      const pnl = position ? (price - position.avgBuyPrice) * size : 0;
+      const pnl = pnlIfSell;
 
-      console.log(`✅ SELL order placed: ${response.orderID} | PnL: ${pnl.toFixed(2)}¢`);
+      console.log(`✅ SELL order placed: ${response.orderID} | PnL: ${pnl.toFixed(2)}¢ | reason=${reason}`);
       this.updatePosition(tokenId, outcome, -size, price);
       this.recordTrade(tokenId, outcome, 'SELL', price, size, pnl);
       return true;

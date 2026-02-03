@@ -308,9 +308,11 @@ async function tick() {
         // 先嘗試補掛 Limit Sell
         await trader.placeLimitSellForPosition(tokenId, pos.outcome, pos.avgBuyPrice);
         await delay(300);
-        // 清理剩餘小數股份（< 1 股）
-        await trader.marketSellRemainder(tokenId, pos.outcome, pos.currentPrice);
-        await delay(300);
+        // 清理極小剩餘（< 0.5 股），避免誤清倉
+        if (pos.size < 0.5) {
+          await trader.marketSellRemainder(tokenId, pos.outcome, pos.currentPrice, 'tiny_remainder');
+          await delay(300);
+        }
       }
     }
 
@@ -350,7 +352,7 @@ async function tick() {
         if (signal.reason?.includes('開局清倉')) {
           success = await trader.forceLiquidate(signal.tokenId, signal.outcome, signal.price);
         } else {
-          success = await trader.sell(signal.tokenId, signal.outcome, signal.price, signal.size);
+          success = await trader.sell(signal.tokenId, signal.outcome, signal.price, signal.size, signal.reason || 'signal');
         }
       }
 
@@ -393,13 +395,13 @@ async function tick() {
         .filter((t) => t.side === 'SELL' && (t.pnl !== undefined))
         .forEach((t) => {
           const outcome = t.outcome as 'Up' | 'Down';
+          const ts = typeof t.timestamp === 'number' ? t.timestamp : new Date(t.timestamp as any).getTime();
           if ((t.pnl || 0) < 0) {
             state[outcome].streak += 1;
           } else {
             state[outcome].streak = 0;
           }
           if (state[outcome].streak >= config.LOSS_STREAK_THRESHOLD) {
-            const ts = typeof t.timestamp === 'number' ? t.timestamp : new Date(t.timestamp as any).getTime();
             state[outcome].cooldownUntil = Math.max(state[outcome].cooldownUntil, ts + config.LOSS_STREAK_COOLDOWN_MS);
           }
         });
@@ -411,6 +413,8 @@ async function tick() {
     };
     const lossState = computeLossState();
     strategy.setLossStreaks(lossState);
+
+    broadcast('cooldown', lossState);
 
     // Broadcast recent trades (last 200) with numeric timestamps for charts
     const recentTrades = history.slice(-200).map((t) => ({
