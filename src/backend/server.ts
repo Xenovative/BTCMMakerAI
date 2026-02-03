@@ -108,8 +108,22 @@ async function tick() {
       return age !== undefined && age > 30_000; // older than 30s
     });
     if (staleTokens.length > 0) {
-      console.warn('[Tick][Prices] stale tokens detected, resubscribing:', staleTokens.join(','));
+      console.warn('[Tick][Prices] stale tokens detected, pruning+resubscribing:', staleTokens.join(','));
+      livePriceFeed.prune(tokenIdsToSub);
       livePriceFeed.subscribe(tokenIdsToSub);
+      // Seed stale tokens with latest state prices to unblock
+      const seedMap: Array<[string | undefined, number | undefined]> = [
+        [state.upTokenId, state.upPrice],
+        [state.downTokenId, state.downPrice],
+        [state.currentUpTokenId, state.currentUpPrice],
+        [state.currentDownTokenId, state.currentDownPrice],
+      ];
+      seedMap.forEach(([tid, price]) => {
+        if (!tid || price == null) return;
+        if (staleTokens.includes(tid)) {
+          livePriceFeed.setPrice(tid, price, true);
+        }
+      });
     }
 
     if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
