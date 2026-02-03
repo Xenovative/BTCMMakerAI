@@ -244,6 +244,16 @@ async function tick() {
           wsUp != null ? 'WS' : (upMid != null ? 'MID' : 'API'),
           wsDown != null ? 'WS' : (downMid != null ? 'MID' : 'API'));
 
+        // Sanity: if sum drifts too far from parity, fallback to API prices
+        const sum = (liveUp || 0) + (liveDown || 0);
+        if (sum < 90 || sum > 110) {
+          console.warn('[Live Prices] sanity fallback: sum=%.2f (up=%.2f down=%.2f), reverting to API', sum, liveUp, liveDown);
+          liveUp = state.upPrice;
+          liveDown = state.downPrice;
+          console.warn('[Live Prices] forcing WS reconnect due to parity failure');
+          livePriceFeed.forceReconnect();
+        }
+
         // Pre-compute AI analyses for both scopes
         strategy.refreshAIAnalyses(state, positions);
         
