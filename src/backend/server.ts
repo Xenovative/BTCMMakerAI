@@ -304,6 +304,18 @@ async function tick() {
       }
     }
 
+    // Ensure live prices are warm/fresh before trading
+    const warmMaxAge = 15_000; // 15s freshness required to trade
+    const requiredTokens = [state.upTokenId, state.downTokenId].filter(Boolean) as string[];
+    const staleForTrade = requiredTokens.filter((t) => {
+      const age = ageMap[t];
+      return age === undefined || age > warmMaxAge;
+    });
+    if (staleForTrade.length > 0) {
+      console.warn('[Trade] skip this tick: prices not warm for', staleForTrade.join(','));
+      return;
+    }
+
     // Generate and execute signals
     const signals = strategy.generateSignals(state, positions);
 
