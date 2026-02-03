@@ -319,6 +319,7 @@ export class Trader {
 
       // 1. 執行買入 (使用較高價格確保成交)
       const buyPrice = Math.min(priceDecimal + 0.01, 0.99); // 加 1¢ 確保成交
+      const buyPriceCents = Math.round(buyPrice * 100);
       const buyResponse = await this.clobClient.createAndPostOrder({
         tokenID: tokenId,
         price: buyPrice,
@@ -326,8 +327,26 @@ export class Trader {
         side: Side.BUY,
       });
       console.log(`✅ BUY order placed: ${buyResponse.orderID} @ ${buyPrice.toFixed(2)}`);
-      this.updatePosition(tokenId, outcome, size, price);
-      this.recordTrade(tokenId, outcome, 'BUY', price, size);
+      // 嘗試獲取成交均價以與 Polymarket 顯示一致
+      let executedPriceCents = buyPriceCents;
+      try {
+        for (let i = 0; i < 5; i++) {
+          await this.sleep(400);
+          const orderInfo: any = await this.clobClient.getOrder(buyResponse.orderID);
+          const avg = orderInfo?.averagePrice ?? orderInfo?.average_price;
+          if (avg) {
+            executedPriceCents = Math.round(parseFloat(avg) * 100);
+            console.log(`[BUY] 成交均價: ${executedPriceCents / 100} (from getOrder)`);
+            break;
+          }
+        }
+      } catch (e: any) {
+        console.log(`[BUY] 讀取成交價失敗，使用提交價: ${e?.message}`);
+      }
+
+      // 以實際成交均價作為成本
+      this.updatePosition(tokenId, outcome, size, executedPriceCents);
+      this.recordTrade(tokenId, outcome, 'BUY', executedPriceCents, size);
 
       // 2. 等待買單成交並輪詢確認
       console.log(`⏳ 等待買單成交...`);
