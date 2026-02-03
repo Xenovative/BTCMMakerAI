@@ -234,15 +234,13 @@ async function tick() {
         const wsCurUp = state.currentUpTokenId ? updatedLivePrices[state.currentUpTokenId] : undefined;
         const wsCurDown = state.currentDownTokenId ? updatedLivePrices[state.currentDownTokenId] : undefined;
 
-        // Prefer WS, then API price, lastly mid (only if both sides existed)
-        liveUp = wsUp ?? state.upPrice ?? upMid;
-        liveDown = wsDown ?? state.downPrice ?? downMid;
-        liveCurrentUp = state.currentUpTokenId ? (wsCurUp ?? state.currentUpPrice ?? (currentEnabled ? getMid(currentUpOrderBook) : null)) : state.currentUpPrice;
-        liveCurrentDown = state.currentDownTokenId ? (wsCurDown ?? state.currentDownPrice ?? (currentEnabled ? getMid(currentDownOrderBook) : null)) : state.currentDownPrice;
-        console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f (source up=%s down=%s)', 
-          liveUp, liveDown, 
-          wsUp != null ? 'WS' : (upMid != null ? 'MID' : 'API'),
-          wsDown != null ? 'WS' : (downMid != null ? 'MID' : 'API'));
+        // Single source of truth: use state values (already patched with freshest live feed), no mid/ws fallback here
+        liveUp = state.upPrice;
+        liveDown = state.downPrice;
+        liveCurrentUp = state.currentUpPrice;
+        liveCurrentDown = state.currentDownPrice;
+        console.log('[Live Prices] Final broadcast (state-driven): up=%.2f down=%.2f curUp=%.2f curDown=%.2f', 
+          liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
         // Sanity: log if sum drifts too far from parity (advisory only)
         const sum = (liveUp || 0) + (liveDown || 0);
