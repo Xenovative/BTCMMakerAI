@@ -309,6 +309,14 @@ export class Trader {
     }
 
     try {
+      // 如果已有開放中的 BUY 訂單，避免重複下單
+      const openOrders = await this.clobClient.getOpenOrders({ asset_id: tokenId });
+      const openBuys = openOrders?.filter((o: any) => o.side === 'BUY') || [];
+      if (openBuys.length > 0) {
+        console.log(`[BUY] 已有 ${openBuys.length} 筆 BUY 掛單，跳過重複下單`);
+        return true;
+      }
+
       // 1. 執行買入 (使用較高價格確保成交)
       const buyPrice = Math.min(priceDecimal + 0.01, 0.99); // 加 1¢ 確保成交
       const buyResponse = await this.clobClient.createAndPostOrder({
