@@ -11,6 +11,7 @@ export class LivePriceFeed {
   private pendingTokens: Set<string> = new Set();
   private subscribedTokens: Set<string> = new Set();
   private prices: Record<string, number> = {}; // tokenId -> price in cents
+  private priceTimestamps: Record<string, number> = {}; // tokenId -> ms
   private bestBids: Record<string, number> = {};
   private bestAsks: Record<string, number> = {};
   private fetcher = new MarketFetcher();
@@ -78,6 +79,20 @@ export class LivePriceFeed {
     } catch (err) {
       console.error('[WS] Failed to send subscribe', err);
     }
+  }
+
+  prune(activeTokenIds: string[]): void {
+    const keep = new Set(activeTokenIds);
+    this.pendingTokens = new Set([...this.pendingTokens].filter((t) => keep.has(t)));
+    this.subscribedTokens = new Set([...this.subscribedTokens].filter((t) => keep.has(t)));
+    Object.keys(this.prices).forEach((k) => {
+      if (!keep.has(k)) {
+        delete this.prices[k];
+        delete this.priceTimestamps[k];
+        delete this.bestBids[k];
+        delete this.bestAsks[k];
+      }
+    });
   }
 
   private handleMessage(msg: any): void {
@@ -165,6 +180,18 @@ export class LivePriceFeed {
     return { ...this.prices };
   }
 
+  getPricesFresh(maxAgeMs: number): Record<string, number> {
+    const now = Date.now();
+    const fresh: Record<string, number> = {};
+    for (const [tokenId, price] of Object.entries(this.prices)) {
+      const ts = this.priceTimestamps[tokenId] || 0;
+      if (now - ts <= maxAgeMs) {
+        fresh[tokenId] = price;
+      }
+    }
+    return fresh;
+  }
+
   setPrice(tokenId: string, priceCents: number, force = false): void {
     if (!force) {
       const current = this.prices[tokenId];
@@ -172,6 +199,7 @@ export class LivePriceFeed {
       if (current !== undefined && Math.abs(current - priceCents) < 0.01) return;
     }
     this.prices[tokenId] = priceCents;
+    this.priceTimestamps[tokenId] = Date.now();
   }
 
   getPriceCount(): number {

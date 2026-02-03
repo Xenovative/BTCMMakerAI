@@ -77,11 +77,12 @@ async function tick() {
     if (state.currentUpTokenId) tokenIdsToSub.push(state.currentUpTokenId);
     if (state.currentDownTokenId) tokenIdsToSub.push(state.currentDownTokenId);
     if (tokenIdsToSub.length > 0) {
+      livePriceFeed.prune(tokenIdsToSub);
       livePriceFeed.subscribe(tokenIdsToSub);
     }
 
     // Apply live prices to state immediately if available (use cents)
-    const liveSnapshot = livePriceFeed.getPrices();
+    const liveSnapshot = livePriceFeed.getPricesFresh(30_000); // only use prices within 30s
     if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
     if (state.downTokenId && liveSnapshot[state.downTokenId] != null) state.downPrice = liveSnapshot[state.downTokenId];
     if (state.currentUpTokenId && liveSnapshot[state.currentUpTokenId] != null) state.currentUpPrice = liveSnapshot[state.currentUpTokenId];
@@ -305,6 +306,14 @@ async function tick() {
       totalTrades,
       winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
     });
+
+    // Broadcast recent trades (last 200) with numeric timestamps for charts
+    const recentTrades = history.slice(-200).map((t) => ({
+      ...t,
+      timestamp: typeof t.timestamp === 'number' ? t.timestamp : new Date(t.timestamp).getTime(),
+      pnl: t.pnl ?? 0,
+    }));
+    broadcast('trades', recentTrades);
 
     // Hard stop if loss limit breached
     if (config.LOSS_LIMIT_CENTS > 0 && totalPnl <= -Math.abs(config.LOSS_LIMIT_CENTS)) {

@@ -186,10 +186,28 @@ export const useBotStore = create<BotStore>((set, get) => ({
             }
             break;
           case 'trade':
-            set({ trades: [data, ...get().trades].slice(0, 100) });
+            set({ trades: [
+              {
+                ...data,
+                price: Number(data.price) || 0,
+                size: Number(data.size) || 0,
+                pnl: data.pnl != null ? Number(data.pnl) : undefined,
+                timestamp: data.timestamp != null ? Number(data.timestamp) : Date.now(),
+              },
+              ...get().trades,
+            ].slice(0, 200) });
             break;
           case 'trades':
-            set({ trades: data });
+            if (Array.isArray(data)) {
+              const parsedTrades = data.map((t: any) => ({
+                ...t,
+                price: Number(t.price) || 0,
+                size: Number(t.size) || 0,
+                pnl: t.pnl != null ? Number(t.pnl) : undefined,
+                timestamp: t.timestamp != null ? Number(t.timestamp) : Date.now(),
+              }));
+              set({ trades: parsedTrades });
+            }
             break;
           case 'pnl':
             set({ status: { ...get().status, totalPnl: data.totalPnl, totalTrades: data.totalTrades, winRate: data.winRate } });
