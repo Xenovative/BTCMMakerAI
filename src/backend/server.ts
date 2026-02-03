@@ -81,12 +81,18 @@ async function tick() {
       livePriceFeed.subscribe(tokenIdsToSub);
     }
 
-    // Apply live prices to state immediately if available (use cents)
-    const liveSnapshot = livePriceFeed.getPricesFresh(30_000); // only use prices within 30s
-    if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
-    if (state.downTokenId && liveSnapshot[state.downTokenId] != null) state.downPrice = liveSnapshot[state.downTokenId];
-    if (state.currentUpTokenId && liveSnapshot[state.currentUpTokenId] != null) state.currentUpPrice = liveSnapshot[state.currentUpTokenId];
-    if (state.currentDownTokenId && liveSnapshot[state.currentDownTokenId] != null) state.currentDownPrice = liveSnapshot[state.currentDownTokenId];
+    // Apply live prices to state immediately if fresh (<=30s); otherwise keep API price
+    const liveFresh = livePriceFeed.getPricesFresh(30_000);
+    const getFreshOrApi = (tokenId?: string, apiPrice?: number) => {
+      if (!tokenId) return apiPrice;
+      const fresh = livePriceFeed.getFreshPrice(tokenId, 30_000);
+      return fresh ?? apiPrice;
+    };
+
+    state.upPrice = getFreshOrApi(state.upTokenId, state.upPrice);
+    state.downPrice = getFreshOrApi(state.downTokenId, state.downPrice);
+    state.currentUpPrice = getFreshOrApi(state.currentUpTokenId, state.currentUpPrice);
+    state.currentDownPrice = getFreshOrApi(state.currentDownTokenId, state.currentDownPrice);
 
     // Seed live feed with latest API prices only if not already present (avoid re-forcing 50/50)
     if (state.upTokenId) livePriceFeed.setPrice(state.upTokenId, state.upPrice, false);

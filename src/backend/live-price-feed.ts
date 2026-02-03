@@ -105,7 +105,7 @@ export class LivePriceFeed {
       const price = Number(priceVal);
       if (!Number.isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
-        if (priceCents > 0.5 && priceCents < 99.5) {
+        if (priceCents >= 8 && priceCents <= 85) {
           this.setPrice(tokenId, priceCents, true);
           return;
         }
@@ -180,6 +180,14 @@ export class LivePriceFeed {
     return { ...this.prices };
   }
 
+  getFreshPrice(tokenId: string, maxAgeMs: number): number | undefined {
+    const price = this.prices[tokenId];
+    const ts = this.priceTimestamps[tokenId];
+    if (price == null || ts == null) return undefined;
+    if (Date.now() - ts > maxAgeMs) return undefined;
+    return price;
+  }
+
   getPricesFresh(maxAgeMs: number): Record<string, number> {
     const now = Date.now();
     const fresh: Record<string, number> = {};
@@ -193,13 +201,24 @@ export class LivePriceFeed {
   }
 
   setPrice(tokenId: string, priceCents: number, force = false): void {
+    const clamped = this.clampPrice(priceCents);
     if (!force) {
       const current = this.prices[tokenId];
       // If unchanged within 0.01¢, keep existing
-      if (current !== undefined && Math.abs(current - priceCents) < 0.01) return;
+      if (current !== undefined && Math.abs(current - clamped) < 0.01) {
+        // Refresh timestamp to prevent staleness when upstream price remains flat
+        this.priceTimestamps[tokenId] = Date.now();
+        return;
+      }
     }
-    this.prices[tokenId] = priceCents;
+    this.prices[tokenId] = clamped;
     this.priceTimestamps[tokenId] = Date.now();
+  }
+
+  private clampPrice(priceCents: number): number {
+    if (priceCents < 8) return 8;
+    if (priceCents > 85) return 85;
+    return priceCents;
   }
 
   getPriceCount(): number {
