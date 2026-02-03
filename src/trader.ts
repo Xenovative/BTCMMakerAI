@@ -207,8 +207,8 @@ export class Trader {
         }
       }
       
-      // 決定實際可賣數量（使用當前餘額，向下取一位小數），並檢查交易所最小 5 股
-      const actualSize = rawAllowance > 0.1 ? Math.floor(rawAllowance * 10) / 10 : 0;
+      // 決定實際可賣數量：使用 balance（向下取一位小數），allowance 只用來批准
+      const actualSize = rawBalance > 0.1 ? Math.floor(rawBalance * 10) / 10 : 0;
       if (actualSize < 5) {
         console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，跳過下單`);
         return false;
