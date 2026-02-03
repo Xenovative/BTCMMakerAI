@@ -180,29 +180,36 @@ export class LivePriceFeed {
     return { ...this.prices };
   }
 
-  getFreshPrice(tokenId: string, maxAgeMs: number): number | undefined {
-    const price = this.prices[tokenId];
-    const ts = this.priceTimestamps[tokenId];
-    if (price == null || ts == null) return undefined;
-    if (Date.now() - ts > maxAgeMs) return undefined;
-    return price;
-  }
-
-  getPriceAgeMs(tokenId: string): number | undefined {
-    const ts = this.priceTimestamps[tokenId];
-    if (ts == null) return undefined;
-    return Date.now() - ts;
-  }
-
   getPricesFresh(maxAgeMs: number): Record<string, number> {
     const now = Date.now();
     const fresh: Record<string, number> = {};
+    let staleCount = 0;
+    let minAge = Number.POSITIVE_INFINITY;
+    let maxAge = 0;
+    const freshKeys: string[] = [];
     for (const [tokenId, price] of Object.entries(this.prices)) {
       const ts = this.priceTimestamps[tokenId] || 0;
-      if (now - ts <= maxAgeMs) {
+      const age = now - ts;
+      minAge = Math.min(minAge, age);
+      maxAge = Math.max(maxAge, age);
+      if (age <= maxAgeMs) {
         fresh[tokenId] = price;
+        freshKeys.push(tokenId);
+      } else {
+        staleCount += 1;
       }
     }
+    const total = Object.keys(this.prices).length;
+    console.log(
+      '[LivePriceFeed] freshness maxAge=%dms total=%d fresh=%d stale=%d ageRange=%d-%dms keys=%s',
+      maxAgeMs,
+      total,
+      freshKeys.length,
+      staleCount,
+      Number.isFinite(minAge) ? minAge : 0,
+      maxAge,
+      freshKeys.slice(0, 10).join(',') || 'none',
+    );
     return fresh;
   }
 
@@ -211,11 +218,7 @@ export class LivePriceFeed {
     if (!force) {
       const current = this.prices[tokenId];
       // If unchanged within 0.01¢, keep existing
-      if (current !== undefined && Math.abs(current - clamped) < 0.01) {
-        // Refresh timestamp to prevent staleness when upstream price remains flat
-        this.priceTimestamps[tokenId] = Date.now();
-        return;
-      }
+      if (current !== undefined && Math.abs(current - clamped) < 0.01) return;
     }
     this.prices[tokenId] = clamped;
     this.priceTimestamps[tokenId] = Date.now();
