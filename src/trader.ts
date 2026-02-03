@@ -149,7 +149,8 @@ export class Trader {
   async placeLimitSellForPosition(
     tokenId: string,
     outcome: 'Up' | 'Down',
-    buyPrice: number
+    buyPrice: number,
+    currentPrice: number
   ): Promise<boolean> {
     if (config.PAPER_TRADING || !this.clobClient) {
       return false;
@@ -208,10 +209,17 @@ export class Trader {
       }
       
       // 決定實際可賣數量：使用 balance（向下取一位小數），allowance 只用來批准
-      const actualSize = rawBalance > 0.1 ? Math.floor(rawBalance * 10) / 10 : 0;
+      const actualSize = rawBalance > 0.05 ? Math.floor(rawBalance * 10) / 10 : 0;
+      if (actualSize <= 0) {
+        console.warn(`[Limit Sell] 可賣數量為 0，跳過`);
+        this.pendingSellOrders.set(tokenId, 'under-min-size');
+        return false;
+      }
       if (actualSize < 5) {
-        console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，但允許強制賣出`);
-        // 允許下單，稍後由交易所決定（可能被拒絕）
+        console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，改用市價清理一次`);
+        await this.marketSellRemainder(tokenId, outcome, currentPrice, 'under-min');
+        this.pendingSellOrders.set(tokenId, 'under-min-size');
+        return false;
       }
 
       const targetSellPrice = buyPrice + config.PROFIT_TARGET;

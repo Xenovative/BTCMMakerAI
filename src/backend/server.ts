@@ -306,7 +306,7 @@ async function tick() {
     for (const [tokenId, pos] of positions) {
       if (pos.size > 0 && !config.PAPER_TRADING) {
         // 先嘗試補掛 Limit Sell
-        await trader.placeLimitSellForPosition(tokenId, pos.outcome, pos.avgBuyPrice);
+        await trader.placeLimitSellForPosition(tokenId, pos.outcome, pos.avgBuyPrice, pos.currentPrice);
         await delay(300);
         // 清理極小剩餘（< 0.5 股），避免誤清倉
         if (pos.size < 0.5) {
