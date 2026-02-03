@@ -121,7 +121,7 @@ export class LivePriceFeed {
       const price = Number(priceVal);
       if (!Number.isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
-        if (priceCents >= 8 && priceCents <= 85) {
+        if (priceCents > 0.5 && priceCents < 99.5) {
           console.log('[LivePriceFeed] set from trade price token=%s raw=%s cents=%.4f', tokenId, priceVal, priceCents);
           this.setPrice(tokenId, priceCents, true);
           return;
@@ -146,7 +146,7 @@ export class LivePriceFeed {
     if (bidNum == null || askNum == null) return;
 
     const spreadCents = (askNum - bidNum) * 100;
-    if (!isFinite(spreadCents) || spreadCents <= 0 || spreadCents > 20) return;
+    if (!isFinite(spreadCents) || spreadCents <= 0 || spreadCents > 50) return;
 
     const mid = (bidNum + askNum) / 2;
     const priceCents = mid < 5 ? mid * 100 : mid;
@@ -258,8 +258,8 @@ export class LivePriceFeed {
   }
 
   private clampPrice(priceCents: number): number {
-    if (priceCents < 8) return 8;
-    if (priceCents > 85) return 85;
+    if (priceCents < 0.5) return 0.5;
+    if (priceCents > 99.5) return 99.5;
     return priceCents;
   }
 
