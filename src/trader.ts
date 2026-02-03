@@ -518,7 +518,7 @@ export class Trader {
     try {
       const position = this.positions.get(tokenId);
       const pnlIfSell = position ? (price - position.avgBuyPrice) * size : 0;
-      const isStopLoss = reason.toLowerCase().includes('stop');
+      const isStopLoss = reason.toLowerCase().includes('stop') || reason.includes('止損');
       const meetsTarget = position ? price >= position.avgBuyPrice + config.PROFIT_TARGET : true;
       if (!isStopLoss && !meetsTarget) {
         console.log(`[SELL] Skip due to no edge: price=${price} avg=${position?.avgBuyPrice} target=${config.PROFIT_TARGET} reason=${reason}`);

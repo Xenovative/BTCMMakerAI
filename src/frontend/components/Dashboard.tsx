@@ -291,10 +291,10 @@ export function Dashboard() {
             當前持倉
           </h3>
           
-          {positions.filter((p) => p.size >= 0.01).length > 0 ? (
+          {positions.filter((p) => p.size >= 0.1).length > 0 ? (
             <div className="space-y-3">
               {positions
-                .filter((p) => p.size >= 0.01)
+                .filter((p) => p.size >= 0.1)
                 .map((pos, idx) => (
                 <div key={idx} className="p-4 bg-gray-800/50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">

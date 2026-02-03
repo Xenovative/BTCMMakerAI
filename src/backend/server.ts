@@ -288,7 +288,7 @@ async function tick() {
 
     // Broadcast positions
     const positionsArray = Array.from(positions.values())
-      .filter((pos) => pos.size >= 0.01)
+      .filter((pos) => pos.size >= 0.1)
       .map((pos) => ({
         tokenId: pos.tokenId,
         outcome: pos.outcome,
