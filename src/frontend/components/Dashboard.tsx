@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Clock, DollarSign, Activity, Target, Zap, Pla
 import { useBotStore } from '../store/botStore';
 
 export function Dashboard() {
-  const { status, market, positions, aiAnalysis, llmAnalysis, trades, startBot, stopBot } = useBotStore();
+  const { status, market, positions, aiAnalysis, llmAnalysis, trades, config, startBot, stopBot } = useBotStore();
 
   const formatDuration = (secondsInput: number) => {
     const seconds = Math.max(0, Math.floor(secondsInput));
@@ -468,6 +468,46 @@ export function Dashboard() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bot Config Snapshot */}
+      <div className="cyber-card rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-cyan-400" />
+          <h3 className="text-lg font-bold text-white">當前交易設定</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="text-gray-500 text-xs">最高買入</div>
+            <div className="text-white font-mono text-lg">{config.maxBuyPrice.toFixed(1)}¢</div>
+          </div>
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="text-gray-500 text-xs">價格下限</div>
+            <div className="text-green-400 font-mono text-lg">{config.priceFloor.toFixed(1)}¢</div>
+          </div>
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="text-gray-500 text-xs">價格上限</div>
+            <div className="text-red-400 font-mono text-lg">{config.priceCeiling.toFixed(1)}¢</div>
+          </div>
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="text-gray-500 text-xs">Limit Sell 差距</div>
+            <div className="text-white font-mono text-lg">+{config.profitTarget.toFixed(1)}¢</div>
+          </div>
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="text-gray-500 text-xs">止損</div>
+            <div className="text-white font-mono text-lg">{config.stopLoss.toFixed(1)}¢</div>
+          </div>
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="text-gray-500 text-xs">每筆股數</div>
+            <div className="text-white font-mono text-lg">{config.maxPositionSize}</div>
+          </div>
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 col-span-2 md:col-span-1">
+            <div className="text-gray-500 text-xs">允許盤中</div>
+            <div className={`text-sm font-bold ${config.allowCurrentMarketTrading ? 'text-green-400' : 'text-gray-400'}`}>
+              {config.allowCurrentMarketTrading ? '開啟' : '關閉'}
+            </div>
           </div>
         </div>
       </div>

@@ -31,6 +31,10 @@ export class Strategy {
   private pendingLLMAnalysis: { next: Promise<LLMAnalysis> | null; current: Promise<LLMAnalysis> | null } = { next: null, current: null };
   private livePrices: Record<string, number> = {};
   private btcSpot: number | null = null;
+  private lossStreaks: Record<'Up' | 'Down', { streak: number; cooldownUntil: number }> = {
+    Up: { streak: 0, cooldownUntil: 0 },
+    Down: { streak: 0, cooldownUntil: 0 },
+  };
 
   /**
    * 分析當前盤口走勢
@@ -337,6 +341,11 @@ export class Strategy {
     const isUp = analysis.recommendedOutcome === 'Up';
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
+    const cooldown = this.lossStreaks[analysis.recommendedOutcome]?.cooldownUntil || 0;
+    if (cooldown > Date.now()) {
+      console.log(`[AI] 冷卻中 (${analysis.recommendedOutcome}) until ${new Date(cooldown).toISOString()}, skip buy`);
+      return null;
+    }
 
     if (price >= 98) {
       console.log(`[AI] 價格過高 (${price.toFixed(1)}¢) 不買`);
@@ -383,8 +392,13 @@ export class Strategy {
     const tokenId = isUp ? upTokenId : downTokenId;
     const price = isUp ? upPrice : downPrice;
 
-    if (price >= config.MAX_BUY_PRICE) {
-      console.log(`[AI] 價格高於上限 ${config.MAX_BUY_PRICE}¢ (got ${price.toFixed(2)}¢), 不買`);
+    if (price < config.PRICE_FLOOR) {
+      console.log(`[AI] 價格低於下限 ${config.PRICE_FLOOR}¢ (got ${price.toFixed(2)}¢), 不買`);
+      return null;
+    }
+
+    if (price > config.PRICE_CEILING) {
+      console.log(`[AI] 價格高於上限 ${config.PRICE_CEILING}¢ (got ${price.toFixed(2)}¢), 不買`);
       return null;
     }
 
@@ -438,6 +452,10 @@ export class Strategy {
     return aiAnalyzer.analyzeSync(state, orderBooks.up, orderBooks.down, positions, livePrices, spot);
   }
 
+  setLossStreaks(lossState: Record<'Up' | 'Down', { streak: number; cooldownUntil: number }>): void {
+    this.lossStreaks = lossState;
+  }
+
   /**
    * 傳統買入邏輯（AI 關閉時使用）
    */
@@ -452,7 +470,12 @@ export class Strategy {
     trend: 'Up' | 'Down' | null
   ): TradeSignal | null {
     // 檢查 Up
-    if (upPrice < config.MAX_BUY_PRICE) {
+    if (upPrice >= config.PRICE_FLOOR && upPrice <= config.PRICE_CEILING && upPrice < config.MAX_BUY_PRICE) {
+      const cooldown = this.lossStreaks['Up']?.cooldownUntil || 0;
+      if (cooldown > Date.now()) {
+        console.log(`[Legacy] Up 冷卻中 until ${new Date(cooldown).toISOString()}, skip buy`);
+        return null;
+      }
       const upMomentum = this.calculateMomentum(upTokenId, upPrice);
       const existing = positions.get(upTokenId)?.size ?? 0;
       const remaining = Math.max(0, config.MAX_POSITION_SIZE - existing);
@@ -469,7 +492,12 @@ export class Strategy {
     }
 
     // 如果 Up 價格太高，檢查 Down
-    if (downPrice < config.MAX_BUY_PRICE) {
+    if (downPrice >= config.PRICE_FLOOR && downPrice <= config.PRICE_CEILING && downPrice < config.MAX_BUY_PRICE) {
+      const cooldown = this.lossStreaks['Down']?.cooldownUntil || 0;
+      if (cooldown > Date.now()) {
+        console.log(`[Legacy] Down 冷卻中 until ${new Date(cooldown).toISOString()}, skip buy`);
+        return null;
+      }
       const downMomentum = this.calculateMomentum(downTokenId, downPrice);
       const existing = positions.get(downTokenId)?.size ?? 0;
       const remaining = Math.max(0, config.MAX_POSITION_SIZE - existing);

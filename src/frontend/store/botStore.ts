@@ -3,9 +3,13 @@ import { create } from 'zustand';
 export interface BotConfig {
   paperTrade: boolean;
   maxBuyPrice: number;
+  priceFloor: number;
+  priceCeiling: number;
   profitTarget: number;
   stopLoss: number;
   maxPositionSize: number;
+  lossStreakCooldownMs: number;
+  lossStreakThreshold: number;
   allowCurrentMarketTrading: boolean;
   privateKey: string;
   funderAddress: string;
@@ -100,9 +104,13 @@ export const useBotStore = create<BotStore>((set, get) => ({
   config: {
     paperTrade: true,
     maxBuyPrice: 50,
+    priceFloor: 1,
+    priceCeiling: 99,
     profitTarget: 2,
     stopLoss: 5,
     maxPositionSize: 100,
+    lossStreakCooldownMs: 120000,
+    lossStreakThreshold: 3,
     allowCurrentMarketTrading: true,
     privateKey: '',
     funderAddress: '',

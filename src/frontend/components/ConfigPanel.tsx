@@ -113,6 +113,36 @@ export function ConfigPanel() {
           </div>
 
           <div>
+            <label className="block text-sm text-gray-400 mb-2">價格下限 (¢)</label>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              max="99"
+              value={localConfig.priceFloor}
+              onChange={(e) => handleChange('priceFloor', parseFloat(e.target.value) || 1)}
+              className="w-full bg-gray-800 border border-green-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-green-500 transition-colors"
+              disabled={status.running}
+            />
+            <p className="text-xs text-gray-600 mt-1">低於此價不進場</p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">價格上限 (¢)</label>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              max="99.5"
+              value={localConfig.priceCeiling}
+              onChange={(e) => handleChange('priceCeiling', parseFloat(e.target.value) || 99)}
+              className="w-full bg-gray-800 border border-red-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-red-500 transition-colors"
+              disabled={status.running}
+            />
+            <p className="text-xs text-gray-600 mt-1">高於此價不進場</p>
+          </div>
+
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Limit Sell 差距 (¢)</label>
             <input
               type="number"

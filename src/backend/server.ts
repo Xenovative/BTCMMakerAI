@@ -360,6 +360,36 @@ async function tick() {
       winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
     });
 
+    // Update loss streak cooldowns
+    const computeLossState = () => {
+      const now = Date.now();
+      const state: Record<'Up' | 'Down', { streak: number; cooldownUntil: number }> = {
+        Up: { streak: 0, cooldownUntil: 0 },
+        Down: { streak: 0, cooldownUntil: 0 },
+      };
+      history
+        .filter((t) => t.side === 'SELL' && (t.pnl !== undefined))
+        .forEach((t) => {
+          const outcome = t.outcome as 'Up' | 'Down';
+          if ((t.pnl || 0) < 0) {
+            state[outcome].streak += 1;
+          } else {
+            state[outcome].streak = 0;
+          }
+          if (state[outcome].streak >= config.LOSS_STREAK_THRESHOLD) {
+            const ts = typeof t.timestamp === 'number' ? t.timestamp : new Date(t.timestamp as any).getTime();
+            state[outcome].cooldownUntil = Math.max(state[outcome].cooldownUntil, ts + config.LOSS_STREAK_COOLDOWN_MS);
+          }
+        });
+      // Ensure cooldown times are in the future relative to now
+      (['Up', 'Down'] as const).forEach((o) => {
+        if (state[o].cooldownUntil < now) state[o].cooldownUntil = 0;
+      });
+      return state;
+    };
+    const lossState = computeLossState();
+    strategy.setLossStreaks(lossState);
+
     // Broadcast recent trades (last 200) with numeric timestamps for charts
     const recentTrades = history.slice(-200).map((t) => ({
       ...t,
@@ -560,6 +590,12 @@ wss.on('connection', (ws) => {
           }
           if (payload.maxBuyPrice) {
             (config as any).MAX_BUY_PRICE = payload.maxBuyPrice;
+          }
+          if (payload.priceFloor) {
+            (config as any).PRICE_FLOOR = payload.priceFloor;
+          }
+          if (payload.priceCeiling) {
+            (config as any).PRICE_CEILING = payload.priceCeiling;
           }
           if (payload.profitTarget) {
             (config as any).PROFIT_TARGET = payload.profitTarget;
