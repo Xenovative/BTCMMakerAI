@@ -106,6 +106,7 @@ export class LivePriceFeed {
       if (!Number.isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
         if (priceCents >= 8 && priceCents <= 85) {
+          console.log('[LivePriceFeed] set from trade price token=%s raw=%s cents=%.4f', tokenId, priceVal, priceCents);
           this.setPrice(tokenId, priceCents, true);
           return;
         }
@@ -133,6 +134,7 @@ export class LivePriceFeed {
 
     const mid = (bidNum + askNum) / 2;
     const priceCents = mid < 5 ? mid * 100 : mid;
+    console.log('[LivePriceFeed] set from mid token=%s bid=%.4f ask=%.4f cents=%.4f spread=%.4f', tokenId, bidNum, askNum, priceCents, spreadCents);
     this.setPrice(tokenId, priceCents, true);
   }
 
@@ -187,6 +189,7 @@ export class LivePriceFeed {
     let minAge = Number.POSITIVE_INFINITY;
     let maxAge = 0;
     const freshKeys: string[] = [];
+    const staleDetails: string[] = [];
     for (const [tokenId, price] of Object.entries(this.prices)) {
       const ts = this.priceTimestamps[tokenId] || 0;
       const age = now - ts;
@@ -197,11 +200,12 @@ export class LivePriceFeed {
         freshKeys.push(tokenId);
       } else {
         staleCount += 1;
+        staleDetails.push(`${tokenId.slice(0, 6)}… age=${age}ms price=${price.toFixed(2)}`);
       }
     }
     const total = Object.keys(this.prices).length;
     console.log(
-      '[LivePriceFeed] freshness maxAge=%dms total=%d fresh=%d stale=%d ageRange=%d-%dms keys=%s',
+      '[LivePriceFeed] freshness maxAge=%dms total=%d fresh=%d stale=%d ageRange=%d-%dms keys=%s%s',
       maxAgeMs,
       total,
       freshKeys.length,
@@ -209,6 +213,7 @@ export class LivePriceFeed {
       Number.isFinite(minAge) ? minAge : 0,
       maxAge,
       freshKeys.slice(0, 10).join(',') || 'none',
+      staleDetails.length > 0 ? ` staleDetails=${staleDetails.slice(0, 5).join(';')}` : '',
     );
     return fresh;
   }
@@ -220,6 +225,18 @@ export class LivePriceFeed {
       // If unchanged within 0.01¢, keep existing
       if (current !== undefined && Math.abs(current - clamped) < 0.01) return;
     }
+    const prev = this.prices[tokenId];
+    console.log(
+      '[LivePriceFeed] setPrice token=%s input=%.4f clamped=%.4f prev=%s force=%s ageMs=%s',
+      tokenId,
+      priceCents,
+      clamped,
+      prev != null ? prev.toFixed(4) : 'none',
+      force,
+      prev != null && this.priceTimestamps[tokenId]
+        ? (Date.now() - this.priceTimestamps[tokenId]).toFixed(0)
+        : 'n/a',
+    );
     this.prices[tokenId] = clamped;
     this.priceTimestamps[tokenId] = Date.now();
   }
@@ -228,6 +245,15 @@ export class LivePriceFeed {
     if (priceCents < 8) return 8;
     if (priceCents > 85) return 85;
     return priceCents;
+  }
+
+  getPriceAges(): Record<string, number> {
+    const now = Date.now();
+    const ages: Record<string, number> = {};
+    for (const [tokenId, ts] of Object.entries(this.priceTimestamps)) {
+      ages[tokenId] = now - ts;
+    }
+    return ages;
   }
 
   getPriceCount(): number {

@@ -83,6 +83,35 @@ async function tick() {
 
     // Apply live prices to state immediately if available (use cents)
     const liveSnapshot = livePriceFeed.getPricesFresh(30_000); // only use prices within 30s
+    const liveAll = livePriceFeed.getPrices();
+    const ageMap = livePriceFeed.getPriceAges();
+    if (Object.keys(liveSnapshot).length === 0 && Object.keys(liveAll).length > 0) {
+      console.log('[Tick][Prices] stale detected: have %d total but 0 fresh', Object.keys(liveAll).length);
+    }
+    const logPrice = (label: string, tokenId?: string) => {
+      if (!tokenId) return 'n/a';
+      const price = liveSnapshot[tokenId];
+      const all = liveAll[tokenId];
+      return `${label}=${price != null ? price.toFixed(4) : 'stale'} (raw=${all != null ? all.toFixed(4) : 'none'})`;
+    };
+    console.log('[Tick][Prices] fresh keys=%s %s %s %s %s',
+      Object.keys(liveSnapshot).join(',') || 'none',
+      logPrice('up', state.upTokenId),
+      logPrice('down', state.downTokenId),
+      logPrice('curUp', state.currentUpTokenId),
+      logPrice('curDown', state.currentDownTokenId),
+    );
+
+    // Auto-resubscribe if any tracked token is stale
+    const staleTokens = tokenIdsToSub.filter((t) => {
+      const age = ageMap[t];
+      return age !== undefined && age > 30_000; // older than 30s
+    });
+    if (staleTokens.length > 0) {
+      console.warn('[Tick][Prices] stale tokens detected, resubscribing:', staleTokens.join(','));
+      livePriceFeed.subscribe(tokenIdsToSub);
+    }
+
     if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
     if (state.downTokenId && liveSnapshot[state.downTokenId] != null) state.downPrice = liveSnapshot[state.downTokenId];
     if (state.currentUpTokenId && liveSnapshot[state.currentUpTokenId] != null) state.currentUpPrice = liveSnapshot[state.currentUpTokenId];
