@@ -143,6 +143,20 @@ export function ConfigPanel() {
           </div>
 
           <div>
+            <label className="block text-sm text-gray-400 mb-2">AI 最小倉位 (股)</label>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              value={localConfig.aiMinPositionSize ?? 1}
+              onChange={(e) => handleChange('aiMinPositionSize', parseInt(e.target.value) || 1)}
+              className="w-full bg-gray-800 border border-purple-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
+              disabled={status.running}
+            />
+            <p className="text-xs text-gray-600 mt-1">AI 推薦的最小下單股數</p>
+          </div>
+
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Limit Sell 差距 (¢)</label>
             <input
               type="number"

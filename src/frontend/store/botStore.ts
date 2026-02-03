@@ -158,7 +158,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
             set({ status: { ...get().status, ...data, uptimeSeconds: data?.uptimeSeconds != null ? Number(data.uptimeSeconds) : get().status.uptimeSeconds } });
             break;
           case 'config':
-            set({ config: { ...get().config, ...data } });
+            set({ config: { ...get().config, ...data, aiMinPositionSize: data.aiMinPositionSize ?? get().config.aiMinPositionSize } });
             break;
           case 'market':
             // Ensure numeric prices and log for debugging
