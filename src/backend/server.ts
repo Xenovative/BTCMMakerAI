@@ -220,51 +220,23 @@ async function tick() {
           if (curDownMid !== null && state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, curDownMid, true);
         }
 
-        // Refresh live prices after setting from order books
-        const updatedLivePrices = livePriceFeed.getPrices();
-        const priceKeys = Object.keys(updatedLivePrices);
-        console.log('[Live Prices] Feed has %d prices. Looking for up=%s down=%s', 
-          priceKeys.length, state.upTokenId, state.downTokenId);
-        if (priceKeys.length > 0 && priceKeys.length < 10) {
-          console.log('[Live Prices] Keys:', priceKeys.join(', '));
-          console.log('[Live Prices] Values:', Object.values(updatedLivePrices).map(v => v.toFixed(2)).join(', '));
-        }
-        strategy.setLivePrices(updatedLivePrices);
+        // Use best bid as mark price for PnL to align with Polymarket value display
+        const applyBestBid = (tokenId: string | undefined, ob: any) => {
+          if (!tokenId || !ob?.bids?.length) return;
+          const bid = parseFloat(ob.bids[0].price);
+          if (!isFinite(bid)) return;
+          const markCents = bid * 100;
+          const pos = positions.get(tokenId);
+          if (pos) {
+            pos.currentPrice = markCents;
+          }
+        };
 
-        // Attach BTC spot (RTDS) for analyses
-        const btcSpot = rtdsPriceFeed.getLatestPrice();
-        strategy.setBtcSpot(btcSpot);
-
-        // Update live price vars for broadcast
-        const wsUp = updatedLivePrices[state.upTokenId];
-        const wsDown = updatedLivePrices[state.downTokenId];
-        const wsCurUp = state.currentUpTokenId ? updatedLivePrices[state.currentUpTokenId] : undefined;
-        const wsCurDown = state.currentDownTokenId ? updatedLivePrices[state.currentDownTokenId] : undefined;
-
-        // Prefer fresh WS; if missing, fall back to mids set earlier
-        liveUp = wsUp ?? state.upPrice;
-        liveDown = wsDown ?? state.downPrice;
-        liveCurrentUp = wsCurUp ?? state.currentUpPrice;
-        liveCurrentDown = wsCurDown ?? state.currentDownPrice;
-        console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f curUp=%.2f curDown=%.2f (wsUp=%s wsDown=%s)', 
-          liveUp, liveDown, liveCurrentUp, liveCurrentDown,
-          wsUp != null ? 'ws' : 'fallback', wsDown != null ? 'ws' : 'fallback');
-
-        // Sanity: log if sum drifts too far from parity (advisory only)
-        const sum = (liveUp || 0) + (liveDown || 0);
-        if (sum < 90 || sum > 110) {
-          console.warn('[Live Prices] parity warning sum=%.2f (up=%.2f down=%.2f)', sum, liveUp, liveDown);
-        }
-
-        // Pre-compute AI analyses for both scopes
-        strategy.refreshAIAnalyses(state, positions);
-        
-        // Update AI analyzer with trade history for win rate calculation
-        aiAnalyzer.updateTradeHistory(trader.getTradeHistory());
-        
-        // Trigger LLM analysis (non-blocking)
-        if (config.LLM_ENABLED && llmAnalyzer.isAvailable()) {
-          strategy.triggerLLMAnalysis(state, positions);
+        applyBestBid(state.upTokenId, upOrderBook);
+        applyBestBid(state.downTokenId, downOrderBook);
+        if (currentEnabled) {
+          applyBestBid(state.currentUpTokenId, currentUpOrderBook);
+          applyBestBid(state.currentDownTokenId, currentDownOrderBook);
         }
       } catch (e) {
         console.log('[AI] Failed to fetch order books:', (e as Error).message);
@@ -324,7 +296,30 @@ async function tick() {
       return age === undefined || age > warmMaxAge;
     });
     if (staleForTrade.length > 0) {
-      console.warn('[Trade] skip this tick: prices not warm for', staleForTrade.join(','));
+      console.warn('[Trade] prices not warm for %s — allow stop-loss exits only', staleForTrade.join(','));
+
+      // Allow emergency stop-loss sells even when prices are stale
+      for (const [tokenId, position] of positions) {
+        if (position.size <= 0) continue;
+        const loss = position.avgBuyPrice - position.currentPrice;
+        if (loss >= config.STOP_LOSS) {
+          console.log(`[策略] stale-stoploss: ${position.outcome} loss=${loss.toFixed(2)}¢ >= ${config.STOP_LOSS}¢`);
+          const ok = await trader.sell(tokenId, position.outcome, position.currentPrice, position.size, `止損 (stale price)`);
+          await delay(300);
+          if (ok) {
+            broadcast('trade', {
+              id: Date.now().toString(),
+              timestamp: Date.now(),
+              market: state.nextMarket?.question || state.currentMarket?.question || 'Unknown',
+              outcome: position.outcome,
+              side: 'SELL',
+              price: position.currentPrice,
+              size: position.size,
+              pnl: (position.currentPrice - position.avgBuyPrice) * position.size,
+            });
+          }
+        }
+      }
       return;
     }
 

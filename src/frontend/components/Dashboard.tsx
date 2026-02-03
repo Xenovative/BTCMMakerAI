@@ -295,42 +295,51 @@ export function Dashboard() {
             <div className="space-y-3">
               {positions
                 .filter((p) => p.size >= 0.1)
-                .map((pos, idx) => (
-                <div key={idx} className="p-4 bg-gray-800/50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {pos.outcome === 'Up' ? (
-                        <TrendingUp className="w-5 h-5 text-green-400" />
-                      ) : (
-                        <TrendingDown className="w-5 h-5 text-red-400" />
-                      )}
-                      <span className={`font-bold ${pos.outcome === 'Up' ? 'text-green-400' : 'text-red-400'}`}>
-                        {pos.outcome}
-                      </span>
-                    </div>
-                    <span className="text-white font-mono">{pos.size} 股</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div>
-                      <div className="text-gray-500 text-xs">買入價</div>
-                      <div className="text-white">{pos.avgBuyPrice.toFixed(1)}¢</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500 text-xs">現價</div>
-                      <div className="text-white">{pos.currentPrice.toFixed(1)}¢</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500 text-xs">未實現盈虧</div>
-                      <div className={pos.unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400'}>
-                        {pos.unrealizedPnl >= 0 ? '+' : ''}{pos.unrealizedPnl.toFixed(2)}¢
-                        <span className="ml-2 text-xs text-gray-400">
-                          ({pos.avgBuyPrice > 0 ? (((pos.currentPrice - pos.avgBuyPrice) / pos.avgBuyPrice) * 100).toFixed(1) + '%' : '—'})
-                        </span>
+                .map((pos, idx) => {
+                  const cost = (pos.avgBuyPrice * pos.size) / 100; // USD
+                  const value = (pos.currentPrice * pos.size) / 100; // USD using best bid mark
+                  const pnl = value - cost;
+                  const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
+                  return (
+                    <div key={idx} className="p-4 bg-gray-800/50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {pos.outcome === 'Up' ? (
+                            <TrendingUp className="w-5 h-5 text-green-400" />
+                          ) : (
+                            <TrendingDown className="w-5 h-5 text-red-400" />
+                          )}
+                          <span className={`font-bold ${pos.outcome === 'Up' ? 'text-green-400' : 'text-red-400'}`}>
+                            {pos.outcome}
+                          </span>
+                        </div>
+                        <span className="text-white font-mono">{pos.size} 股</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-sm">
+                        <div>
+                          <div className="text-gray-500 text-xs">QTY</div>
+                          <div className="text-white">{pos.size}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 text-xs">AVG</div>
+                          <div className="text-white">{pos.avgBuyPrice.toFixed(1)}¢</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 text-xs">VALUE</div>
+                          <div className="text-white">${value.toFixed(2)}</div>
+                          <div className="text-gray-500 text-xs">Cost ${cost.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 text-xs">RETURN</div>
+                          <div className={pnl >= 0 ? 'text-green-400' : 'text-red-400'}>
+                            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                            <span className="ml-2 text-xs text-gray-400">({pnlPct.toFixed(2)}%)</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
