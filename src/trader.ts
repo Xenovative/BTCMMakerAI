@@ -91,60 +91,52 @@ export class Trader {
       const upBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: upTokenId });
       const upBalance = parseFloat(upBalances?.balance || '0') / 1e6;
       
-      if (upBalance > 0.1) {
+      if (upBalance >= 0.01) {
         if (!this.positions.has(upTokenId)) {
           // 新發現的持倉（可能是 bot 重啟後）- 用當前價格作為估計
-          // 注意：這不是真正的買入價，只是估計值
-          console.log(`[同步] 發現 Up 持倉: ${upBalance.toFixed(1)} 股 (估計買入價: ${upPrice.toFixed(1)}¢)`);
+          console.log(`[同步] 發現 Up 持倉: ${upBalance.toFixed(3)} 股 (估計買入價: ${upPrice.toFixed(1)}¢)`);
           this.positions.set(upTokenId, {
             tokenId: upTokenId,
             outcome: 'Up',
-            size: Math.floor(upBalance),
+            size: upBalance,
             avgBuyPrice: upPrice, // 估計值，實際買入時會被正確設置
             currentPrice: upPrice,
           });
         } else {
           // 已有持倉記錄 - 只更新數量和現價，保留原始 avgBuyPrice
           const pos = this.positions.get(upTokenId)!;
-          pos.size = Math.floor(upBalance);
+          pos.size = upBalance;
           pos.currentPrice = upPrice;
-          // 不更新 avgBuyPrice - 保留實際買入價格
         }
-      } else {
-        if (this.positions.has(upTokenId)) {
-          console.log(`[同步] Up 持倉已清空`);
-          this.positions.delete(upTokenId);
-          this.pendingSellOrders.delete(upTokenId);
-        }
+      } else if (this.positions.has(upTokenId)) {
+        console.log(`[同步] Up 持倉已清空 (on-chain ${upBalance.toFixed(4)})`);
+        this.positions.delete(upTokenId);
+        this.pendingSellOrders.delete(upTokenId);
       }
 
       // 查詢 Down 持倉
       const downBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: downTokenId });
       const downBalance = parseFloat(downBalances?.balance || '0') / 1e6;
       
-      if (downBalance > 0.1) {
+      if (downBalance >= 0.01) {
         if (!this.positions.has(downTokenId)) {
-          console.log(`[同步] 發現 Down 持倉: ${downBalance.toFixed(1)} 股 (估計買入價: ${downPrice.toFixed(1)}¢)`);
+          console.log(`[同步] 發現 Down 持倉: ${downBalance.toFixed(3)} 股 (估計買入價: ${downPrice.toFixed(1)}¢)`);
           this.positions.set(downTokenId, {
             tokenId: downTokenId,
             outcome: 'Down',
-            size: Math.floor(downBalance),
+            size: downBalance,
             avgBuyPrice: downPrice,
             currentPrice: downPrice,
           });
         } else {
-          // 已有持倉記錄 - 只更新數量和現價，保留原始 avgBuyPrice
           const pos = this.positions.get(downTokenId)!;
-          pos.size = Math.floor(downBalance);
+          pos.size = downBalance;
           pos.currentPrice = downPrice;
-          // 不更新 avgBuyPrice - 保留實際買入價格
         }
-      } else {
-        if (this.positions.has(downTokenId)) {
-          console.log(`[同步] Down 持倉已清空`);
-          this.positions.delete(downTokenId);
-          this.pendingSellOrders.delete(downTokenId);
-        }
+      } else if (this.positions.has(downTokenId)) {
+        console.log(`[同步] Down 持倉已清空 (on-chain ${downBalance.toFixed(4)})`);
+        this.positions.delete(downTokenId);
+        this.pendingSellOrders.delete(downTokenId);
       }
     } catch (error: any) {
       console.error('[同步] 查詢持倉失敗:', error?.message);
@@ -182,57 +174,50 @@ export class Trader {
       let rawAllowance = parseFloat(balances.allowance || '0') / 1e6;
       
       console.log(`[Limit Sell] balance=${rawBalance.toFixed(4)}, allowance=${rawAllowance.toFixed(4)}`);
-      
-      // 如果 allowance=0 但 balance>0，需要檢查是否真的有掛單
+
+      // 查詢是否有該 token 的 open sell order，若有則標記並退出，避免重複掛單
+      try {
+        const openOrders = await this.clobClient.getOpenOrders({ asset_id: tokenId });
+        const sellOrders = openOrders?.filter((o: any) => o.side === 'SELL') || [];
+        if (sellOrders.length > 0) {
+          console.log(`[Limit Sell] 已有 ${sellOrders.length} 個賣單掛單中`);
+          this.pendingSellOrders.set(tokenId, sellOrders[0].id || 'existing');
+          return true;
+        }
+      } catch (e: any) {
+        console.log(`[Limit Sell] 查詢掛單失敗: ${e?.message}`);
+      }
+
+      // 如果 allowance=0 但 balance>0，嘗試 approve 一次
       if (rawAllowance < 0.1 && rawBalance > 0.1) {
-        // 查詢是否有該 token 的 open orders
+        console.log(`[Limit Sell] allowance 為 0，嘗試 approve token...`);
         try {
-          const openOrders = await this.clobClient.getOpenOrders({ asset_id: tokenId });
-          const sellOrders = openOrders?.filter((o: any) => o.side === 'SELL') || [];
-          
-          if (sellOrders.length > 0) {
-            console.log(`[Limit Sell] 已有 ${sellOrders.length} 個賣單掛單中`);
-            this.pendingSellOrders.set(tokenId, sellOrders[0].id || 'existing');
-            return true;
-          } else {
-            // 沒有掛單，需要 approve 然後下單
-            console.log(`[Limit Sell] 無掛單，嘗試 approve token...`);
-            await this.clobClient.updateBalanceAllowance({ 
-              asset_type: 'CONDITIONAL' as any, 
-              token_id: tokenId 
-            });
-            await this.sleep(2000);
-            
-            // 重新查詢 allowance
-            const newBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
-            rawAllowance = parseFloat(newBalances?.allowance || '0') / 1e6;
-            console.log(`[Limit Sell] Approve 後 allowance=${rawAllowance.toFixed(4)}`);
-            
-            if (rawAllowance < 0.1) {
-              // 還是 0，直接用 balance 嘗試
-              console.log(`[Limit Sell] allowance 仍為 0，用 balance 嘗試下單`);
-              rawAllowance = rawBalance;
-            }
-          }
+          await this.clobClient.updateBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+          await this.sleep(2000);
+          const newBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+          rawAllowance = parseFloat(newBalances?.allowance || '0') / 1e6;
+          console.log(`[Limit Sell] Approve 後 allowance=${rawAllowance.toFixed(4)}`);
         } catch (e: any) {
-          console.log(`[Limit Sell] 查詢掛單失敗: ${e?.message}，用 balance 嘗試`);
+          console.log(`[Limit Sell] approve 或重查失敗: ${e?.message}`);
+        }
+
+        if (rawAllowance < 0.1) {
+          // 還是 0，直接用 balance 嘗試
           rawAllowance = rawBalance;
         }
       }
       
-      // 決定實際可賣數量
-      let actualSize: number;
-      if (rawAllowance > 0.1) {
-        actualSize = parseFloat(rawAllowance.toFixed(1));
-      } else {
-        console.log(`[Limit Sell] 無可賣股份`);
+      // 決定實際可賣數量（使用當前餘額，向下取一位小數），並檢查交易所最小 5 股
+      const actualSize = rawAllowance > 0.1 ? Math.floor(rawAllowance * 10) / 10 : 0;
+      if (actualSize < 5) {
+        console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，跳過下單`);
         return false;
       }
 
       const targetSellPrice = buyPrice + config.PROFIT_TARGET;
       const targetSellPriceDecimal = targetSellPrice / 100;
 
-      console.log(`📊 補掛 Limit Sell: ${actualSize} 股 ${outcome} @ ${targetSellPriceDecimal.toFixed(2)} (+${config.PROFIT_TARGET}¢) [raw: ${rawBalance}]`);
+      console.log(`📊 補掛 Limit Sell: ${actualSize} 股 ${outcome} @ ${targetSellPriceDecimal.toFixed(2)} (+${config.PROFIT_TARGET}¢) [raw balance: ${rawBalance}]`);
 
       const sellResponse = await this.clobClient.createAndPostOrder({
         tokenID: tokenId,
@@ -376,6 +361,11 @@ export class Trader {
 
       if (actualSize <= 0) {
         console.log(`⚠️ 買單未成交或 allowance 為 0，Limit Sell 將由下一個 tick 補掛`);
+        return true;
+      }
+
+      if (actualSize < 5) {
+        console.warn(`[Limit Sell] 買單成交數量 ${actualSize} < 5，跳過掛單（交易所最小）`);
         return true;
       }
 

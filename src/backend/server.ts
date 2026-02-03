@@ -82,7 +82,7 @@ async function tick() {
     }
 
     // Apply live prices to state immediately if available (use cents)
-    const liveSnapshot = livePriceFeed.getPricesFresh(30_000); // only use prices within 30s
+    const liveSnapshot = livePriceFeed.getPricesFresh(10_000); // only use prices within 10s
     const liveAll = livePriceFeed.getPrices();
     const ageMap = livePriceFeed.getPriceAges();
     if (Object.keys(liveSnapshot).length === 0 && Object.keys(liveAll).length > 0) {
@@ -105,7 +105,7 @@ async function tick() {
     // Auto-resubscribe if any tracked token is stale
     const staleTokens = tokenIdsToSub.filter((t) => {
       const age = ageMap[t];
-      return age !== undefined && age > 30_000; // older than 30s
+      return age !== undefined && age > 10_000; // older than 10s
     });
     if (staleTokens.length > 0) {
       console.warn('[Tick][Prices] stale tokens detected, pruning+resubscribing:', staleTokens.join(','));
@@ -130,6 +130,13 @@ async function tick() {
         console.warn('[Tick][Prices] forcing WS reconnect due to fully stale snapshot');
         livePriceFeed.forceReconnect();
       }
+    }
+
+    // Force reconnect if any tracked token age exceeds 15s even if snapshot not empty
+    const maxAge = Math.max(...tokenIdsToSub.map((t) => ageMap[t] ?? 0), 0);
+    if (maxAge > 15_000) {
+      console.warn('[Tick][Prices] max age=%dms > 15000, forcing WS reconnect', maxAge);
+      livePriceFeed.forceReconnect();
     }
 
     if (state.upTokenId && liveSnapshot[state.upTokenId] != null) state.upPrice = liveSnapshot[state.upTokenId];
@@ -234,13 +241,14 @@ async function tick() {
         const wsCurUp = state.currentUpTokenId ? updatedLivePrices[state.currentUpTokenId] : undefined;
         const wsCurDown = state.currentDownTokenId ? updatedLivePrices[state.currentDownTokenId] : undefined;
 
-        // Single source of truth: use state values (already patched with freshest live feed), no mid/ws fallback here
-        liveUp = state.upPrice;
-        liveDown = state.downPrice;
-        liveCurrentUp = state.currentUpPrice;
-        liveCurrentDown = state.currentDownPrice;
-        console.log('[Live Prices] Final broadcast (state-driven): up=%.2f down=%.2f curUp=%.2f curDown=%.2f', 
-          liveUp, liveDown, liveCurrentUp, liveCurrentDown);
+        // Prefer fresh WS; if missing, fall back to mids set earlier
+        liveUp = wsUp ?? state.upPrice;
+        liveDown = wsDown ?? state.downPrice;
+        liveCurrentUp = wsCurUp ?? state.currentUpPrice;
+        liveCurrentDown = wsCurDown ?? state.currentDownPrice;
+        console.log('[Live Prices] Final broadcast: up=%.2f down=%.2f curUp=%.2f curDown=%.2f (wsUp=%s wsDown=%s)', 
+          liveUp, liveDown, liveCurrentUp, liveCurrentDown,
+          wsUp != null ? 'ws' : 'fallback', wsDown != null ? 'ws' : 'fallback');
 
         // Sanity: log if sum drifts too far from parity (advisory only)
         const sum = (liveUp || 0) + (liveDown || 0);
@@ -279,14 +287,16 @@ async function tick() {
     console.log('[Market broadcast] up=%d down=%d curUp=%d curDown=%d', liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
     // Broadcast positions
-    const positionsArray = Array.from(positions.values()).map((pos) => ({
-      tokenId: pos.tokenId,
-      outcome: pos.outcome,
-      size: pos.size,
-      avgBuyPrice: pos.avgBuyPrice,
-      currentPrice: pos.currentPrice,
-      unrealizedPnl: (pos.currentPrice - pos.avgBuyPrice) * pos.size,
-    }));
+    const positionsArray = Array.from(positions.values())
+      .filter((pos) => pos.size >= 0.01)
+      .map((pos) => ({
+        tokenId: pos.tokenId,
+        outcome: pos.outcome,
+        size: pos.size,
+        avgBuyPrice: pos.avgBuyPrice,
+        currentPrice: pos.currentPrice,
+        unrealizedPnl: (pos.currentPrice - pos.avgBuyPrice) * pos.size,
+      }));
     broadcast('positions', positionsArray);
 
     // 當前市場 ID（僅供日誌使用）
