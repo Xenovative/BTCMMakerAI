@@ -260,14 +260,20 @@ export class Trader {
       const balances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
       if (!balances) return false;
 
-      const rawAllowance = parseFloat(balances.allowance || '0') / 1e6;
-      
+      const rawBalance = parseFloat(balances.balance || '0') / 1e6;
+      let rawAllowance = parseFloat(balances.allowance || '0') / 1e6;
+
+      // fallback to balance if allowance is empty
+      if (rawAllowance < 0.01 && rawBalance > 0.01) {
+        rawAllowance = rawBalance;
+      }
+
       // 只處理小於 1 股的剩餘（小數部分）
       if (rawAllowance <= 0 || rawAllowance >= 1) {
         return false;
       }
 
-      const sellSize = parseFloat(rawAllowance.toFixed(1));
+      const sellSize = parseFloat(rawAllowance.toFixed(2));
       if (sellSize <= 0) return false;
 
       // Market Sell: 用較低價格確保成交
@@ -283,6 +289,10 @@ export class Trader {
       });
 
       console.log(`✅ Market Sell 完成: ${sellResponse.orderID}`);
+      const pos = this.positions.get(tokenId);
+      const pnl = pos ? (currentPrice - pos.avgBuyPrice) * sellSize : 0;
+      this.recordTrade(tokenId, outcome, 'SELL', currentPrice, sellSize, pnl);
+      this.updatePosition(tokenId, outcome, -sellSize, currentPrice);
       return true;
     } catch (error: any) {
       console.error('[Market Sell] 失敗:', error?.message || error);
