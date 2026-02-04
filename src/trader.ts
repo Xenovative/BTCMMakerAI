@@ -159,6 +159,12 @@ export class Trader {
     // 檢查是否已有掛單（必須有有效的 orderId）
     const existingOrder = this.pendingSellOrders.get(tokenId);
     if (existingOrder && existingOrder.length > 0) {
+      if (existingOrder === 'under-min-size') {
+        console.log(`[Limit Sell] 清除殘留 under-min 標記，停止重試 dust 倉位`);
+        this.positions.delete(tokenId);
+        this.pendingSellOrders.delete(tokenId);
+        return true;
+      }
       console.log(`[Limit Sell] 已有掛單: ${existingOrder}`);
       return true;
     }
@@ -310,6 +316,8 @@ export class Trader {
       return true;
     } catch (error: any) {
       console.error('[Market Sell] 失敗:', error?.message || error);
+      this.positions.delete(tokenId);
+      this.pendingSellOrders.delete(tokenId);
       return false;
     }
   }
