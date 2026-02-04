@@ -245,44 +245,6 @@ export function ConfigPanel() {
           </label>
         </div>
 
-        {/* Cost Preview */}
-        <div className="mt-6 p-4 bg-gradient-to-r from-purple-900/20 to-cyan-900/20 rounded-lg border border-purple-500/20">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500">每筆成本:</span>
-              <span className="text-white font-mono ml-2">
-                ${((localConfig.maxBuyPrice / 100) * localConfig.maxPositionSize).toFixed(2)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">目標利潤:</span>
-              <span className="text-green-400 font-mono ml-2">
-                +${((localConfig.profitTarget / 100) * localConfig.maxPositionSize).toFixed(2)}
-              </span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-gray-500">範例:</span>
-              <span className="text-cyan-400 font-mono ml-2">
-                買 {localConfig.maxBuyPrice}¢ → 掛賣 {localConfig.maxBuyPrice + localConfig.profitTarget}¢
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Wallet Connection */}
-      <div className="cyber-card rounded-xl p-6">
-        <div className="flex items-center gap-2 text-xl font-bold text-white mb-6">
-          <Wallet className="w-6 h-6 text-yellow-400" />
-          錢包連接
-        </div>
-
-        <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg mb-6">
-          <p className="text-blue-300 text-sm">
-            💡 在 <a href="https://polymarket.com/settings" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-200">polymarket.com/settings</a> 找到你的 Proxy Wallet 地址
-          </p>
-        </div>
-
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
