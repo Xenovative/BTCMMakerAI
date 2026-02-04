@@ -147,7 +147,12 @@ export const useBotStore = create<BotStore>((set, get) => ({
   ws: null,
 
   connect: () => {
-    const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws`);
+    const envWsUrl = (import.meta as any).env?.VITE_WS_URL as string | undefined;
+    const host = (import.meta as any).env?.VITE_API_HOST || window.location.hostname;
+    const port = (import.meta as any).env?.VITE_API_PORT || window.location.port || '3001';
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = envWsUrl || `${protocol}://${host}:${port}/ws`;
+    const ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
       console.log('[WS] Connected');
