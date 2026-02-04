@@ -18,6 +18,7 @@ export class Trader {
   private positions: Map<string, Position> = new Map();
   private tradeHistory: TradeRecord[] = [];
   private pendingSellOrders: Map<string, string> = new Map(); // tokenId -> orderId
+  private pendingBuyOrders: Map<string, { orderId: string; outcome: 'Up' | 'Down' }> = new Map();
 
   async initialize(): Promise<boolean> {
     if (config.PAPER_TRADING) {
@@ -363,6 +364,25 @@ export class Trader {
     price: number,
     size: number
   ): Promise<boolean> {
+    // Avoid switching sides while any buy order is still open
+    for (const [pendingToken, pending] of Array.from(this.pendingBuyOrders.entries())) {
+      if (pending.outcome !== outcome) {
+        try {
+          const info: any = await this.clobClient?.getOrder(pending.orderId);
+          const status = info?.status || info?.state || '';
+          if (status && status.toLowerCase() === 'open') {
+            console.log(`[BUY] Skip because pending buy order ${pending.orderId} (${pending.outcome}) still open`);
+            return false;
+          }
+          // Clean up if filled/canceled
+          this.pendingBuyOrders.delete(pendingToken);
+        } catch (e: any) {
+          console.log(`[BUY] Pending buy check failed, skip to avoid side flip: ${e?.message}`);
+          return false;
+        }
+      }
+    }
+
     // 單邊持倉防護：若持有相反方向的任何倉位則不買
     for (const pos of this.positions.values()) {
       if (pos.size > 0 && pos.outcome !== outcome) {
@@ -408,6 +428,7 @@ export class Trader {
         side: Side.BUY,
       });
       console.log(`✅ BUY order placed: ${buyResponse.orderID} @ ${buyPrice.toFixed(2)}`);
+      this.pendingBuyOrders.set(tokenId, { orderId: buyResponse.orderID, outcome });
       // 嘗試獲取成交均價以與 Polymarket 顯示一致
       let executedPriceCents = buyPriceCents;
       try {
@@ -468,12 +489,14 @@ export class Trader {
         // 確保不留殘留持倉
         this.positions.delete(tokenId);
         this.pendingSellOrders.delete(tokenId);
+        this.pendingBuyOrders.delete(tokenId);
         return true;
       }
 
       // 以實際成交均價與數量更新持倉並記錄交易
       this.updatePosition(tokenId, outcome, actualSize, executedPriceCents);
       this.recordTrade(tokenId, outcome, 'BUY', executedPriceCents, actualSize, undefined, undefined, tokenId);
+      this.pendingBuyOrders.delete(tokenId);
 
       if (actualSize < 5) {
         console.warn(`[Limit Sell] 買單成交數量 ${actualSize} < 5，跳過掛單（交易所最小）`);
@@ -594,7 +617,7 @@ export class Trader {
 
     try {
       const avgBuy = position?.avgBuyPrice ?? price;
-      const plannedSize = size;
+      let plannedSize = size;
       const isStopLoss = reason.toLowerCase().includes('stop') || reason.includes('止損');
       const meetsTarget = position ? ((price - position.avgBuyPrice) / position.avgBuyPrice) >= config.PROFIT_TARGET_PCT : true;
       if (!isStopLoss && !meetsTarget) {
@@ -602,14 +625,36 @@ export class Trader {
         return false;
       }
 
+      // Reconcile on-chain allowance/balance to avoid over-sized orders
+      try {
+        const balances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+        const rawBalance = parseFloat(balances?.balance || '0') / 1e6;
+        let rawAllowance = parseFloat(balances?.allowance || '0') / 1e6;
+        if (rawAllowance < 0.01 && rawBalance > 0.01) rawAllowance = rawBalance;
+        const maxSellable = Math.max(0, Math.min(rawBalance, rawAllowance, position?.size ?? size));
+        plannedSize = Math.min(plannedSize, maxSellable);
+        if (plannedSize <= 0) {
+          console.warn(`[SELL] No allowance/balance to sell token=${tokenId} balance=${rawBalance.toFixed(3)} allowance=${rawAllowance.toFixed(3)}`);
+          return false;
+        }
+        if (plannedSize < 5) {
+          console.warn(`[SELL] Size ${plannedSize.toFixed(2)} < exchange min, using marketSellRemainder`);
+          const cleaned = await this.marketSellRemainder(tokenId, outcome, price, 'sell-under-min');
+          if (!cleaned) console.warn('[SELL] marketSellRemainder failed');
+          return cleaned;
+        }
+      } catch (e: any) {
+        console.log(`[SELL] balance/allowance check failed, proceed with planned size ${plannedSize}: ${e?.message}`);
+      }
+
       const response = await this.clobClient.createAndPostOrder({
         tokenID: tokenId,
         price: priceDecimal,
-        size,
+        size: plannedSize,
         side: Side.SELL,
       });
       let executedPriceCents = price;
-      let executedSize = size;
+      let executedSize = plannedSize;
       try {
         for (let i = 0; i < 5; i++) {
           await this.sleep(400);
