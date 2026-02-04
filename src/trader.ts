@@ -212,13 +212,21 @@ export class Trader {
       const actualSize = rawBalance > 0.05 ? Math.floor(rawBalance * 10) / 10 : 0;
       if (actualSize <= 0) {
         console.warn(`[Limit Sell] 可賣數量為 0，跳過`);
-        this.pendingSellOrders.set(tokenId, 'under-min-size');
+        // 清除殘留標記，避免反覆重試
+        this.positions.delete(tokenId);
+        this.pendingSellOrders.delete(tokenId);
         return false;
       }
       if (actualSize < 5) {
         console.warn(`[Limit Sell] 可賣數量 ${actualSize.toFixed(1)} < 5 (交易所最小值)，改用市價清理一次`);
-        await this.marketSellRemainder(tokenId, outcome, currentPrice, 'under-min');
-        this.pendingSellOrders.set(tokenId, 'under-min-size');
+        const cleaned = await this.marketSellRemainder(tokenId, outcome, currentPrice, 'under-min');
+        if (!cleaned) {
+          // 如果清理失敗，仍然把本地持倉/掛單清掉，避免無限重試
+          this.positions.delete(tokenId);
+          this.pendingSellOrders.delete(tokenId);
+        } else {
+          this.pendingSellOrders.delete(tokenId);
+        }
         return false;
       }
 
@@ -274,7 +282,11 @@ export class Trader {
       }
 
       const sellSize = parseFloat(rawAllowance.toFixed(2));
-      if (sellSize <= 0) return false;
+      if (sellSize <= 0) {
+        this.positions.delete(tokenId);
+        this.pendingSellOrders.delete(tokenId);
+        return false;
+      }
 
       // Market Sell: 用較低價格確保成交
       const marketPrice = Math.max((currentPrice - 5) / 100, 0.01); // 當前價 -5¢
@@ -293,6 +305,8 @@ export class Trader {
       const pnl = pos ? (currentPrice - pos.avgBuyPrice) * sellSize : 0;
       this.recordTrade(tokenId, outcome, 'SELL', currentPrice, sellSize, pnl);
       this.updatePosition(tokenId, outcome, -sellSize, currentPrice);
+      // 清除 pending，避免對同一殘餘倉位重複嘗試
+      this.pendingSellOrders.delete(tokenId);
       return true;
     } catch (error: any) {
       console.error('[Market Sell] 失敗:', error?.message || error);
@@ -371,10 +385,6 @@ export class Trader {
         console.log(`[BUY] 讀取成交價失敗，使用提交價: ${e?.message}`);
       }
 
-      // 以實際成交均價作為成本
-      this.updatePosition(tokenId, outcome, size, executedPriceCents);
-      this.recordTrade(tokenId, outcome, 'BUY', executedPriceCents, size);
-
       // 2. 等待買單成交並輪詢確認
       console.log(`⏳ 等待買單成交...`);
       let actualSize = 0;
@@ -414,9 +424,16 @@ export class Trader {
       }
 
       if (actualSize <= 0) {
-        console.log(`⚠️ 買單未成交或 allowance 為 0，Limit Sell 將由下一個 tick 補掛`);
+        console.log(`⚠️ 買單未成交或 allowance 為 0，撤回本地持倉記錄`);
+        // 確保不留殘留持倉
+        this.positions.delete(tokenId);
+        this.pendingSellOrders.delete(tokenId);
         return true;
       }
+
+      // 以實際成交均價與數量更新持倉並記錄交易
+      this.updatePosition(tokenId, outcome, actualSize, executedPriceCents);
+      this.recordTrade(tokenId, outcome, 'BUY', executedPriceCents, actualSize);
 
       if (actualSize < 5) {
         console.warn(`[Limit Sell] 買單成交數量 ${actualSize} < 5，跳過掛單（交易所最小）`);
@@ -518,9 +535,9 @@ export class Trader {
     reason: string = 'signal'
   ): Promise<boolean> {
     const priceDecimal = price / 100;
+    const position = this.positions.get(tokenId);
 
     if (config.PAPER_TRADING) {
-      const position = this.positions.get(tokenId);
       const pnl = position ? (price - position.avgBuyPrice) * size : 0;
       console.log(`📝 [PAPER] SELL ${size} ${outcome} @ ${priceDecimal.toFixed(2)} | PnL: ${pnl.toFixed(2)}¢`);
       this.updatePosition(tokenId, outcome, -size, price);
@@ -534,8 +551,8 @@ export class Trader {
     }
 
     try {
-      const position = this.positions.get(tokenId);
-      const pnlIfSell = position ? (price - position.avgBuyPrice) * size : 0;
+      const avgBuy = position?.avgBuyPrice ?? price;
+      const plannedSize = size;
       const isStopLoss = reason.toLowerCase().includes('stop') || reason.includes('止損');
       const meetsTarget = position ? ((price - position.avgBuyPrice) / position.avgBuyPrice) >= config.PROFIT_TARGET_PCT : true;
       if (!isStopLoss && !meetsTarget) {
@@ -549,12 +566,29 @@ export class Trader {
         size,
         side: Side.SELL,
       });
+      let executedPriceCents = price;
+      let executedSize = size;
+      try {
+        for (let i = 0; i < 5; i++) {
+          await this.sleep(400);
+          const orderInfo: any = await this.clobClient.getOrder(response.orderID);
+          const avg = orderInfo?.averagePrice ?? orderInfo?.average_price;
+          const filled = orderInfo?.sizeFilled ?? orderInfo?.size_filled ?? orderInfo?.filled ?? orderInfo?.filledSize ?? orderInfo?.totalFilled ?? orderInfo?.size_filled_total;
+          if (avg) executedPriceCents = Math.round(parseFloat(avg) * 100);
+          if (filled) executedSize = parseFloat(filled);
+          if (avg || filled) break;
+        }
+      } catch (e: any) {
+        console.log(`[SELL] 讀取成交價失敗，使用提交價: ${e?.message}`);
+      }
 
-      const pnl = pnlIfSell;
+      // Clamp executed size to available position to avoid over-deducting
+      const sizeToClose = position ? Math.min(executedSize, position.size) : executedSize;
+      const pnl = position ? (executedPriceCents - avgBuy) * sizeToClose : 0;
 
-      console.log(`✅ SELL order placed: ${response.orderID} | PnL: ${pnl.toFixed(2)}¢ | reason=${reason}`);
-      this.updatePosition(tokenId, outcome, -size, price);
-      this.recordTrade(tokenId, outcome, 'SELL', price, size, pnl);
+      console.log(`✅ SELL order placed: ${response.orderID} | filled ${sizeToClose.toFixed(2)} @ ${(executedPriceCents / 100).toFixed(2)} | PnL: ${pnl.toFixed(2)}¢ | reason=${reason}`);
+      this.updatePosition(tokenId, outcome, -sizeToClose, executedPriceCents);
+      this.recordTrade(tokenId, outcome, 'SELL', executedPriceCents, sizeToClose, pnl);
       return true;
     } catch (error) {
       console.error('Sell order failed:', error);

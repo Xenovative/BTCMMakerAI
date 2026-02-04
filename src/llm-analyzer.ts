@@ -198,8 +198,9 @@ ${positionInfo}
 
 === TRADING PARAMETERS ===
 Max Buy Price: ${config.MAX_BUY_PRICE}¢
-Profit Target: ${config.PROFIT_TARGET}¢
-Stop Loss: ${config.STOP_LOSS}¢
+Profit Target: ${(config.PROFIT_TARGET_PCT * 100).toFixed(2)}%
+Stop Loss: ${(config.STOP_LOSS_PCT * 100).toFixed(2)}%
+Combined Price Cap: ${(config.COMBINED_PRICE_CAP * 100).toFixed(0)}¢ (up+down must be below)
 Max Position Size: ${config.MAX_POSITION_SIZE} shares
 Min Position Size: ${config.AI_MIN_POSITION_SIZE} shares
 `.trim();
