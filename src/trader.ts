@@ -222,10 +222,10 @@ export class Trader {
         return false;
       }
 
-      const targetSellPrice = buyPrice + config.PROFIT_TARGET;
+      const targetSellPrice = buyPrice * (1 + config.PROFIT_TARGET_PCT);
       const targetSellPriceDecimal = targetSellPrice / 100;
 
-      console.log(`📊 補掛 Limit Sell: ${actualSize} 股 ${outcome} @ ${targetSellPriceDecimal.toFixed(2)} (+${config.PROFIT_TARGET}¢) [raw balance: ${rawBalance}]`);
+      console.log(`📊 補掛 Limit Sell: ${actualSize} 股 ${outcome} @ ${targetSellPriceDecimal.toFixed(2)} (+${(config.PROFIT_TARGET_PCT * 100).toFixed(2)}%) [raw balance: ${rawBalance}]`);
 
       const sellResponse = await this.clobClient.createAndPostOrder({
         tokenID: tokenId,
@@ -537,9 +537,9 @@ export class Trader {
       const position = this.positions.get(tokenId);
       const pnlIfSell = position ? (price - position.avgBuyPrice) * size : 0;
       const isStopLoss = reason.toLowerCase().includes('stop') || reason.includes('止損');
-      const meetsTarget = position ? price >= position.avgBuyPrice + config.PROFIT_TARGET : true;
+      const meetsTarget = position ? ((price - position.avgBuyPrice) / position.avgBuyPrice) >= config.PROFIT_TARGET_PCT : true;
       if (!isStopLoss && !meetsTarget) {
-        console.log(`[SELL] Skip due to no edge: price=${price} avg=${position?.avgBuyPrice} target=${config.PROFIT_TARGET} reason=${reason}`);
+        console.log(`[SELL] Skip due to no edge: price=${price} avg=${position?.avgBuyPrice} targetPct=${(config.PROFIT_TARGET_PCT * 100).toFixed(2)}% reason=${reason}`);
         return false;
       }
 

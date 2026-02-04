@@ -298,6 +298,7 @@ async function tick() {
       .filter((pos) => pos.size >= 0.1)
       .map((pos) => {
         const marketName = tokenToMarket.get(pos.tokenId) || state.currentMarket?.question || state.nextMarket?.question || '';
+        const returnPct = pos.avgBuyPrice > 0 ? (pos.currentPrice - pos.avgBuyPrice) / pos.avgBuyPrice : 0;
         return {
           tokenId: pos.tokenId,
           outcome: pos.outcome,
@@ -305,6 +306,7 @@ async function tick() {
           avgBuyPrice: pos.avgBuyPrice,
           currentPrice: pos.currentPrice,
           unrealizedPnl: (pos.currentPrice - pos.avgBuyPrice) * pos.size,
+          returnPct,
           market: marketName,
         };
       });

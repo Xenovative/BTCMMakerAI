@@ -156,15 +156,16 @@ export class Strategy {
     for (const [tokenId, position] of positions) {
       if (position.size > 0) {
         const loss = position.avgBuyPrice - position.currentPrice;
-        if (loss >= config.STOP_LOSS) {
-          console.log(`[策略] 觸發止損: ${position.outcome} loss=${loss.toFixed(2)}¢ >= stopLoss=${config.STOP_LOSS}¢`);
+        const lossPct = position.avgBuyPrice > 0 ? loss / position.avgBuyPrice : 0;
+        if (lossPct >= config.STOP_LOSS_PCT) {
+          console.log(`[策略] 觸發止損: ${position.outcome} loss=${loss.toFixed(2)}¢ (${(lossPct * 100).toFixed(2)}%) >= stopLossPct=${(config.STOP_LOSS_PCT * 100).toFixed(2)}%`);
           signals.push({
             action: 'SELL',
             tokenId,
             outcome: position.outcome,
             price: position.currentPrice,
             size: position.size,
-            reason: `止損賣出 @ ${position.currentPrice.toFixed(1)}¢ (loss: -${loss.toFixed(2)}¢)`,
+            reason: `止損賣出 @ ${position.currentPrice.toFixed(1)}¢ (loss: -${loss.toFixed(2)}¢, ${(lossPct * 100).toFixed(2)}%)`,
           });
         }
       }
@@ -178,15 +179,16 @@ export class Strategy {
     for (const [tokenId, position] of positions) {
       if (position.size > 0) {
         const profit = position.currentPrice - position.avgBuyPrice;
-        if (profit >= config.PROFIT_TARGET) {
-          console.log(`[策略] 達到獲利目標: ${position.outcome} profit=${profit.toFixed(2)}¢ >= target=${config.PROFIT_TARGET}¢`);
+        const profitPct = position.avgBuyPrice > 0 ? profit / position.avgBuyPrice : 0;
+        if (profitPct >= config.PROFIT_TARGET_PCT) {
+          console.log(`[策略] 達到獲利目標: ${position.outcome} profit=${profit.toFixed(2)}¢ (${(profitPct * 100).toFixed(2)}%) >= targetPct=${(config.PROFIT_TARGET_PCT * 100).toFixed(2)}%`);
           signals.push({
             action: 'SELL',
             tokenId,
             outcome: position.outcome,
             price: position.currentPrice,
             size: position.size,
-            reason: `獲利賣出 @ ${position.currentPrice.toFixed(1)}¢ (profit: ${profit.toFixed(2)}¢)`,
+            reason: `獲利賣出 @ ${position.currentPrice.toFixed(1)}¢ (profit: ${profit.toFixed(2)}¢, ${(profitPct * 100).toFixed(2)}%)`,
           });
         }
       }

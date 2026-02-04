@@ -329,7 +329,7 @@ export function Dashboard() {
                       <div className={pos.unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400'}>
                         {pos.unrealizedPnl >= 0 ? '+' : ''}{pos.unrealizedPnl.toFixed(2)}¢
                         <span className="ml-2 text-xs text-gray-400">
-                          ({pos.avgBuyPrice > 0 ? (((pos.currentPrice - pos.avgBuyPrice) / pos.avgBuyPrice) * 100).toFixed(1) + '%' : '—'})
+                          ({pos.returnPct != null ? (pos.returnPct * 100).toFixed(2) : pos.avgBuyPrice > 0 ? (((pos.currentPrice - pos.avgBuyPrice) / pos.avgBuyPrice) * 100).toFixed(2) : '—'}%)
                         </span>
                       </div>
                     </div>
