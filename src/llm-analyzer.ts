@@ -92,6 +92,7 @@ IMPORTANT RULES:
 4. Consider order book depth, price momentum, and market sentiment
 5. Be conservative - only recommend trading when you have reasonable confidence
 6. Position size should scale with confidence (20-100 shares)
+7. Only trade when Up+Down price sum is below ${ (config.COMBINED_PRICE_CAP * 100).toFixed(0) }¢ (combined price cap)
 
 Respond in JSON format ONLY:
 {
@@ -174,6 +175,7 @@ Time to Current Market End: ${timeToEndSec}s
 Up Price: ${state.upPrice.toFixed(2)}¢
 Down Price: ${state.downPrice.toFixed(2)}¢
 Price Sum: ${(state.upPrice + state.downPrice).toFixed(2)}¢ (should be ~100¢)
+Combined Price Cap: ${(config.COMBINED_PRICE_CAP * 100).toFixed(0)}¢ (must be below to buy)
 
 === UP ORDER BOOK ===
 Best Bid: ${(upBestBid * 100).toFixed(2)}¢ | Best Ask: ${(upBestAsk * 100).toFixed(2)}¢

@@ -16,6 +16,7 @@ export const config = {
   PRICE_FLOOR: Number(process.env.PRICE_FLOOR) || 1, // cents
   PRICE_CEILING: Number(process.env.PRICE_CEILING) || 99, // cents
   PROFIT_TARGET: Number(process.env.PROFIT_TARGET) || 2, // cents
+  COMBINED_PRICE_CAP: Number(process.env.COMBINED_PRICE_CAP) || 0.96, // e.g. 0.96 means up+down < 0.96
   STOP_LOSS: Number(process.env.STOP_LOSS) || 5, // cents - 止損點（虧損超過此值時賣出）
   LOSS_LIMIT_CENTS: Number(process.env.LOSS_LIMIT_CENTS) || 0, // 總盈虧達到此虧損上限時停止機器人（0=關閉）
   MAX_POSITION_SIZE: Number(process.env.MAX_POSITION_SIZE) || 100,

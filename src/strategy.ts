@@ -348,6 +348,12 @@ export class Strategy {
       console.log(`[AI] 已持有相反倉位 ${oppositeSize.toFixed(3)} 股，先賣出再買 ${analysis.recommendedOutcome}`);
       return null;
     }
+
+    const combinedPriceCents = upPrice + downPrice;
+    if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
+      console.log(`[LLM] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買`);
+      return null;
+    }
     const cooldown = this.lossStreaks[analysis.recommendedOutcome]?.cooldownUntil || 0;
     if (cooldown > Date.now()) {
       console.log(`[AI] 冷卻中 (${analysis.recommendedOutcome}) until ${new Date(cooldown).toISOString()}, skip buy`);
@@ -412,6 +418,12 @@ export class Strategy {
 
     if (price > config.PRICE_CEILING) {
       console.log(`[AI] 價格高於上限 ${config.PRICE_CEILING}¢ (got ${price.toFixed(2)}¢), 不買`);
+      return null;
+    }
+
+    const combinedPriceCents = upPrice + downPrice;
+    if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
+      console.log(`[AI] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買`);
       return null;
     }
 
@@ -489,6 +501,11 @@ export class Strategy {
         console.log(`[Legacy] 已持有 Down ${downHeld.toFixed(3)} 股，先賣出再買 Up`);
         return null;
       }
+      const combinedPriceCents = upPrice + downPrice;
+      if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
+        console.log(`[Legacy] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買 Up`);
+        return null;
+      }
       const cooldown = this.lossStreaks['Up']?.cooldownUntil || 0;
       if (cooldown > Date.now()) {
         console.log(`[Legacy] Up 冷卻中 until ${new Date(cooldown).toISOString()}, skip buy`);
@@ -514,6 +531,11 @@ export class Strategy {
       const upHeld = positions.get(upTokenId)?.size ?? 0;
       if (upHeld > 0) {
         console.log(`[Legacy] 已持有 Up ${upHeld.toFixed(3)} 股，先賣出再買 Down`);
+        return null;
+      }
+      const combinedPriceCents = upPrice + downPrice;
+      if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
+        console.log(`[Legacy] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買 Down`);
         return null;
       }
       const cooldown = this.lossStreaks['Down']?.cooldownUntil || 0;
