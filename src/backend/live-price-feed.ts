@@ -109,6 +109,10 @@ export class LivePriceFeed {
         delete this.bestAsks[k];
       }
     });
+    // Re-subscribe to kept tokens to refresh book streams
+    if (keep.size > 0) {
+      this.subscribe(Array.from(keep));
+    }
   }
 
   private handleMessage(msg: any): void {
@@ -231,6 +235,18 @@ export class LivePriceFeed {
       freshKeys.slice(0, 10).join(',') || 'none',
       staleDetails.length > 0 ? ` staleDetails=${staleDetails.slice(0, 5).join(';')}` : '',
     );
+
+    // Watchdog: if any price is very stale, force reconnect and resubscribe
+    if (staleCount > 0 && maxAge > maxAgeMs * 2) {
+      console.warn('[LivePriceFeed] stale prices detected, forcing reconnect/resubscribe');
+      const tokens = Array.from(this.subscribedTokens);
+      this.forceReconnect();
+      if (tokens.length > 0) {
+        this.subscribe(tokens);
+      }
+      // Kick a one-shot REST poll as fallback
+      void this.pollOrderBooks();
+    }
     return fresh;
   }
 
