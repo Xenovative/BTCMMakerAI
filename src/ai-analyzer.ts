@@ -121,6 +121,25 @@ export class AIAnalyzer {
 
     const reasons: string[] = [];
 
+    // Combined price cap guard
+    const combinedCents = upPriceRt + downPriceRt;
+    if (combinedCents >= config.COMBINED_PRICE_CAP * 100) {
+      reasons.push(`雙邊價格過高 up+down=${combinedCents.toFixed(1)}¢ >= cap ${(config.COMBINED_PRICE_CAP * 100).toFixed(0)}¢`);
+      return {
+        shouldTrade: false,
+        recommendedOutcome: null,
+        confidence: 0,
+        recommendedSize: 0,
+        reasons,
+        signals: {
+          technical: { momentum: 0, volatility: 0, rsi: 50, trend: 'neutral', score: 0 },
+          orderBook: { bidAskSpread: 0, depthImbalance: 0, liquidityScore: 0, score: 0 },
+          sentiment: { priceDeviation: 0, recentWinRate: 50, marketBias: 'neutral', score: 0 },
+          timing: { timeToStart: Math.round(state.timeToStart / 1000), optimalWindow: false, urgency: 0, score: 0 },
+        },
+      };
+    }
+
     // 記錄當前價格
     if (state.upTokenId) this.recordPrice(state.upTokenId, upPriceRt);
     if (state.downTokenId) this.recordPrice(state.downTokenId, downPriceRt);

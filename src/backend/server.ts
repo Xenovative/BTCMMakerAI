@@ -328,14 +328,18 @@ async function tick() {
     }
 
     // Ensure live prices are warm/fresh before trading
-    const warmMaxAge = 15_000; // 15s freshness required to trade
+    const warmMaxAge = 15_000; // default 15s freshness
+    const endgameTightAge = 5_000; // tighten near market end
+    const isNearEnd = state.currentMarket && state.timeToEnd > 0 && state.timeToEnd <= config.SELL_BEFORE_START_MS + 30_000; // within clear-out window + 30s
+    const freshnessLimit = isNearEnd ? endgameTightAge : warmMaxAge;
+
     const requiredTokens = [state.upTokenId, state.downTokenId].filter(Boolean) as string[];
     const staleForTrade = requiredTokens.filter((t) => {
       const age = ageMap[t];
-      return age === undefined || age > warmMaxAge;
+      return age === undefined || age > freshnessLimit;
     });
     if (staleForTrade.length > 0) {
-      console.warn('[Trade] skip this tick: prices not warm for', staleForTrade.join(','));
+      console.warn('[Trade] skip this tick: prices not warm for', staleForTrade.join(','), `limit=${freshnessLimit}ms`, 'isNearEnd=', isNearEnd);
       return;
     }
 
