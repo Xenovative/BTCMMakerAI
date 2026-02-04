@@ -168,8 +168,36 @@ export class Trader {
         this.pendingSellOrders.delete(tokenId);
         return true;
       }
-      console.log(`[Limit Sell] 已有掛單: ${existingOrder}`);
-      return true;
+      // 檢查該掛單是否仍然存在或已成交/取消
+      try {
+        const orderInfo: any = await this.clobClient?.getOrder(existingOrder);
+        const status = orderInfo?.status || orderInfo?.state || '';
+        const filled = parseFloat(orderInfo?.averagePrice ?? orderInfo?.average_price ?? '0');
+        const sizeFilled = parseFloat(orderInfo?.sizeFilled ?? orderInfo?.size_filled ?? orderInfo?.filled ?? orderInfo?.filledSize ?? orderInfo?.totalFilled ?? orderInfo?.size_filled_total ?? '0');
+        if (status && status.toLowerCase() === 'filled') {
+          console.log(`[Limit Sell] 掛單 ${existingOrder} 已成交，清除 pending`);
+          this.pendingSellOrders.delete(tokenId);
+          // 同步一次持倉數量（根據 on-chain balance）
+          try {
+            const balances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+            const rawBalance = parseFloat(balances?.balance || '0') / 1e6;
+            const pos = this.positions.get(tokenId);
+            if (pos) pos.size = rawBalance;
+          } catch {}
+          return true;
+        }
+        // 若無法取得訂單或狀態非開放，清除 pending 讓後續重新掛單
+        if (!orderInfo || status.toLowerCase() === 'cancelled' || status.toLowerCase() === 'canceled') {
+          console.log(`[Limit Sell] 掛單 ${existingOrder} 不存在或已取消，清除 pending 重試`);
+          this.pendingSellOrders.delete(tokenId);
+        } else {
+          console.log(`[Limit Sell] 已有掛單: ${existingOrder} status=${status} filled=${sizeFilled} avg=${filled}`);
+          return true;
+        }
+      } catch (e: any) {
+        console.log(`[Limit Sell] 查詢掛單失敗，清除 pending 以允許重掛: ${e?.message}`);
+        this.pendingSellOrders.delete(tokenId);
+      }
     }
 
     try {
