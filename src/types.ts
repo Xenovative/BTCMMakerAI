@@ -34,6 +34,7 @@ export interface Position {
   size: number;
   avgBuyPrice: number;
   currentPrice: number;
+  market?: string;
 }
 
 export interface TradeSignal {

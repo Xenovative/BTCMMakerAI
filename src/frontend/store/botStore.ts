@@ -23,6 +23,7 @@ export interface Position {
   avgBuyPrice: number;
   currentPrice: number;
   unrealizedPnl: number;
+  market?: string;
 }
 
 export interface Trade {
@@ -190,6 +191,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
                 avgBuyPrice: Number(p.avgBuyPrice) || 0,
                 currentPrice: Number(p.currentPrice) || 0,
                 unrealizedPnl: Number(p.unrealizedPnl) || 0,
+                market: p.market || undefined,
               }));
               console.log('[WS][positions]', parsedPositions);
               set({ positions: parsedPositions });

@@ -286,17 +286,28 @@ async function tick() {
     });
     console.log('[Market broadcast] up=%d down=%d curUp=%d curDown=%d', liveUp, liveDown, liveCurrentUp, liveCurrentDown);
 
-    // Broadcast positions
+    // Broadcast positions (with market name)
+    const tokenToMarket = new Map<string, string>();
+    for (const mkt of state.allMarkets || []) {
+      for (const t of mkt.tokens || []) {
+        if (t?.tokenId) tokenToMarket.set(t.tokenId, mkt.question || mkt.slug || '');
+      }
+    }
+
     const positionsArray = Array.from(positions.values())
       .filter((pos) => pos.size >= 0.1)
-      .map((pos) => ({
-        tokenId: pos.tokenId,
-        outcome: pos.outcome,
-        size: pos.size,
-        avgBuyPrice: pos.avgBuyPrice,
-        currentPrice: pos.currentPrice,
-        unrealizedPnl: (pos.currentPrice - pos.avgBuyPrice) * pos.size,
-      }));
+      .map((pos) => {
+        const marketName = tokenToMarket.get(pos.tokenId) || state.currentMarket?.question || state.nextMarket?.question || '';
+        return {
+          tokenId: pos.tokenId,
+          outcome: pos.outcome,
+          size: pos.size,
+          avgBuyPrice: pos.avgBuyPrice,
+          currentPrice: pos.currentPrice,
+          unrealizedPnl: (pos.currentPrice - pos.avgBuyPrice) * pos.size,
+          market: marketName,
+        };
+      });
     broadcast('positions', positionsArray);
 
     // 當前市場 ID（僅供日誌使用）
@@ -358,11 +369,12 @@ async function tick() {
 
       await delay(500); // Rate limit between trades
       if (success) {
-        // Broadcast trade
+        // Broadcast trade with market name derived from token mapping
+        const tradeMarket = tokenToMarket.get(signal.tokenId) || state.nextMarket?.question || state.currentMarket?.question || 'Unknown';
         broadcast('trade', {
           id: Date.now().toString(),
           timestamp: Date.now(),
-          market: state.nextMarket?.question || state.currentMarket?.question || 'Unknown',
+          market: tradeMarket,
           outcome: signal.outcome,
           side: signal.action,
           price: signal.price,

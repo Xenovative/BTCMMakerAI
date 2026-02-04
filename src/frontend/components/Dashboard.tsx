@@ -307,6 +307,11 @@ export function Dashboard() {
                       <span className={`font-bold ${pos.outcome === 'Up' ? 'text-green-400' : 'text-red-400'}`}>
                         {pos.outcome}
                       </span>
+                      {pos.market && (
+                        <span className="text-xs text-gray-400 truncate max-w-[180px]" title={pos.market}>
+                          {pos.market}
+                        </span>
+                      )}
                     </div>
                     <span className="text-white font-mono">{pos.size} 股</span>
                   </div>

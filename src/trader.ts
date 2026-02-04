@@ -309,6 +309,14 @@ export class Trader {
     price: number,
     size: number
   ): Promise<boolean> {
+    // 單邊持倉防護：若持有相反方向的任何倉位則不買
+    for (const pos of this.positions.values()) {
+      if (pos.size > 0 && pos.outcome !== outcome) {
+        console.log(`[BUY] 已持有相反倉位 ${pos.size.toFixed(3)} ${pos.outcome}，先清空後再買 ${outcome}`);
+        return false;
+      }
+    }
+
     const priceDecimal = price / 100; // cents to decimal
     const targetSellPrice = price + config.PROFIT_TARGET; // 買入價 + 差距值
     const targetSellPriceDecimal = targetSellPrice / 100;
