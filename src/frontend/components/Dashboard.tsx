@@ -120,6 +120,16 @@ export function Dashboard() {
           </div>
           <div className="text-gray-600 text-xs mt-1">
             {(status.totalPnl >= 0 ? '+' : '') + status.totalPnl.toFixed(2)}¢
+            <span className="ml-2 text-cyan-300">
+              {(() => {
+                const pct = status.totalPnlPct != null
+                  ? status.totalPnlPct
+                  : status.totalCost && status.totalCost !== 0
+                    ? (status.totalPnl / status.totalCost) * 100
+                    : undefined;
+                return pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—%';
+              })()}
+            </span>
           </div>
         </div>
 

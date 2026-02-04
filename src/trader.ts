@@ -93,13 +93,14 @@ export class Trader {
       
       if (upBalance >= 1) {
         if (!this.positions.has(upTokenId)) {
-          // 新發現的持倉（可能是 bot 重啟後）- 用當前價格作為估計
-          console.log(`[同步] 發現 Up 持倉: ${upBalance.toFixed(3)} 股 (估計買入價: ${upPrice.toFixed(1)}¢)`);
+          const lastBuy = [...this.tradeHistory].reverse().find((t) => t.side === 'BUY' && t.price != null && t.tokenId === upTokenId);
+          const seedPrice = lastBuy?.price ?? upPrice;
+          console.log(`[同步] 發現 Up 持倉: ${upBalance.toFixed(3)} 股 (估計買入價: ${seedPrice.toFixed(1)}¢)`);
           this.positions.set(upTokenId, {
             tokenId: upTokenId,
             outcome: 'Up',
             size: upBalance,
-            avgBuyPrice: upPrice, // 估計值，實際買入時會被正確設置
+            avgBuyPrice: seedPrice,
             currentPrice: upPrice,
           });
         } else {
@@ -120,12 +121,14 @@ export class Trader {
       
       if (downBalance >= 1) {
         if (!this.positions.has(downTokenId)) {
-          console.log(`[同步] 發現 Down 持倉: ${downBalance.toFixed(3)} 股 (估計買入價: ${downPrice.toFixed(1)}¢)`);
+          const lastBuy = [...this.tradeHistory].reverse().find((t) => t.side === 'BUY' && t.price != null && t.tokenId === downTokenId);
+          const seedPrice = lastBuy?.price ?? downPrice;
+          console.log(`[同步] 發現 Down 持倉: ${downBalance.toFixed(3)} 股 (估計買入價: ${seedPrice.toFixed(1)}¢)`);
           this.positions.set(downTokenId, {
             tokenId: downTokenId,
             outcome: 'Down',
             size: downBalance,
-            avgBuyPrice: downPrice,
+            avgBuyPrice: seedPrice,
             currentPrice: downPrice,
           });
         } else {
@@ -309,7 +312,8 @@ export class Trader {
       console.log(`✅ Market Sell 完成: ${sellResponse.orderID}`);
       const pos = this.positions.get(tokenId);
       const pnl = pos ? (currentPrice - pos.avgBuyPrice) * sellSize : 0;
-      this.recordTrade(tokenId, outcome, 'SELL', currentPrice, sellSize, pnl);
+      const costCents = pos ? pos.avgBuyPrice * sellSize : undefined;
+      this.recordTrade(tokenId, outcome, 'SELL', currentPrice, sellSize, pnl, costCents, tokenId);
       this.updatePosition(tokenId, outcome, -sellSize, currentPrice);
       // 清除 pending，避免對同一殘餘倉位重複嘗試
       this.pendingSellOrders.delete(tokenId);
@@ -347,7 +351,7 @@ export class Trader {
       console.log(`📝 [PAPER] BUY ${size} ${outcome} @ ${priceDecimal.toFixed(2)}`);
       console.log(`📝 [PAPER] LIMIT SELL ${size} ${outcome} @ ${targetSellPriceDecimal.toFixed(2)} (target: +${config.PROFIT_TARGET}¢)`);
       this.updatePosition(tokenId, outcome, size, price);
-      this.recordTrade(tokenId, outcome, 'BUY', price, size);
+      this.recordTrade(tokenId, outcome, 'BUY', price, size, undefined, undefined, tokenId);
       this.pendingSellOrders.set(tokenId, `paper-${Date.now()}`);
       return true;
     }
@@ -441,7 +445,7 @@ export class Trader {
 
       // 以實際成交均價與數量更新持倉並記錄交易
       this.updatePosition(tokenId, outcome, actualSize, executedPriceCents);
-      this.recordTrade(tokenId, outcome, 'BUY', executedPriceCents, actualSize);
+      this.recordTrade(tokenId, outcome, 'BUY', executedPriceCents, actualSize, undefined, undefined, tokenId);
 
       if (actualSize < 5) {
         console.warn(`[Limit Sell] 買單成交數量 ${actualSize} < 5，跳過掛單（交易所最小）`);
@@ -483,8 +487,9 @@ export class Trader {
       console.log(`📝 [PAPER] FORCE LIQUIDATE ${outcome}`);
       const pos = this.positions.get(tokenId);
       if (pos && pos.size > 0) {
-        const pnl = (currentPrice - pos.avgBuyPrice) * pos.size;
-        this.recordTrade(tokenId, outcome, 'SELL', currentPrice, pos.size, pnl);
+        const pnl = pos ? (currentPrice - pos.avgBuyPrice) * pos.size : 0;
+        const costCents = pos ? pos.avgBuyPrice * pos.size : undefined;
+        this.recordTrade(tokenId, outcome, 'SELL', currentPrice, pos.size, pnl, costCents);
       }
       this.positions.delete(tokenId);
       this.pendingSellOrders.delete(tokenId);
@@ -549,7 +554,8 @@ export class Trader {
       const pnl = position ? (price - position.avgBuyPrice) * size : 0;
       console.log(`📝 [PAPER] SELL ${size} ${outcome} @ ${priceDecimal.toFixed(2)} | PnL: ${pnl.toFixed(2)}¢`);
       this.updatePosition(tokenId, outcome, -size, price);
-      this.recordTrade(tokenId, outcome, 'SELL', price, size, pnl);
+      const costCents = position ? position.avgBuyPrice * size : undefined;
+      this.recordTrade(tokenId, outcome, 'SELL', price, size, pnl, costCents, tokenId);
       return true;
     }
 
@@ -593,10 +599,11 @@ export class Trader {
       // Clamp executed size to available position to avoid over-deducting
       const sizeToClose = position ? Math.min(executedSize, position.size) : executedSize;
       const pnl = position ? (executedPriceCents - avgBuy) * sizeToClose : 0;
+      const costCents = position ? avgBuy * sizeToClose : undefined;
 
       console.log(`✅ SELL order placed: ${response.orderID} | filled ${sizeToClose.toFixed(2)} @ ${(executedPriceCents / 100).toFixed(2)} | PnL: ${pnl.toFixed(2)}¢ | reason=${reason}`);
       this.updatePosition(tokenId, outcome, -sizeToClose, executedPriceCents);
-      this.recordTrade(tokenId, outcome, 'SELL', executedPriceCents, sizeToClose, pnl);
+      this.recordTrade(tokenId, outcome, 'SELL', executedPriceCents, sizeToClose, pnl, costCents, tokenId);
       return true;
     } catch (error) {
       console.error('Sell order failed:', error);
@@ -675,16 +682,20 @@ export class Trader {
     side: 'BUY' | 'SELL',
     price: number,
     size: number,
-    pnl?: number
+    pnl?: number,
+    costCents?: number,
+    tokenId?: string,
   ): void {
     this.tradeHistory.push({
       timestamp: new Date(),
+      tokenId: tokenId || market,
       market,
       outcome,
       side,
       price,
       size,
       pnl,
+      costCents,
     });
   }
 

@@ -388,30 +388,37 @@ async function tick() {
 
       await delay(500); // Rate limit between trades
       if (success) {
-        // Broadcast trade with market name derived from token mapping
+        // Broadcast trade using the most recent executed record from trader history (captures actual fill price/size)
         const tradeMarket = tokenToMarket.get(signal.tokenId) || state.nextMarket?.question || state.currentMarket?.question || 'Unknown';
+        const history = trader.getTradeHistory();
+        const last = history[history.length - 1];
         broadcast('trade', {
           id: Date.now().toString(),
-          timestamp: Date.now(),
+          timestamp: last?.timestamp ? new Date(last.timestamp).getTime() : Date.now(),
           market: tradeMarket,
-          outcome: signal.outcome,
-          side: signal.action,
-          price: signal.price,
-          size: signal.size,
-          pnl: signal.action === 'SELL' ? (signal.price - (positions.get(signal.tokenId)?.avgBuyPrice || signal.price)) * signal.size : undefined,
+          outcome: last?.outcome || signal.outcome,
+          side: last?.side || signal.action,
+          price: last?.price != null ? last.price : signal.price,
+          size: last?.size != null ? last.size : signal.size,
+          pnl: last?.pnl,
         });
       }
     }
 
     // Broadcast PnL stats
     const history = trader.getTradeHistory();
-    const totalPnl = history.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const wins = history.filter((t) => (t.pnl || 0) > 0).length;
-    const totalTrades = history.filter((t) => t.side === 'SELL').length;
+    const sells = history.filter((t) => t.side === 'SELL');
+    const totalPnl = sells.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const totalCost = sells.reduce((sum, t) => sum + (t.costCents || 0), 0);
+    const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+    const wins = sells.filter((t) => (t.pnl || 0) > 0).length;
+    const totalTrades = sells.length;
 
     broadcast('pnl', {
       totalPnl,
       totalTrades,
+      totalCost,
+      totalPnlPct,
       winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
     });
 

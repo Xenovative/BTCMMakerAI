@@ -85,6 +85,8 @@ export interface BotStatus {
   connected: boolean;
   paperTrade: boolean;
   totalPnl: number;
+  totalPnlPct?: number;
+  totalCost?: number;
   totalTrades: number;
   winRate: number;
   uptimeSeconds?: number;
@@ -131,6 +133,8 @@ export const useBotStore = create<BotStore>((set, get) => ({
     connected: false,
     paperTrade: true,
     totalPnl: 0,
+    totalPnlPct: 0,
+    totalCost: 0,
     totalTrades: 0,
     winRate: 0,
     uptimeSeconds: 0,
@@ -239,7 +243,14 @@ export const useBotStore = create<BotStore>((set, get) => ({
             }
             break;
           case 'pnl':
-            set({ status: { ...get().status, totalPnl: data.totalPnl, totalTrades: data.totalTrades, winRate: data.winRate } });
+            set({ status: { 
+              ...get().status,
+              totalPnl: Number(data.totalPnl) || 0,
+              totalPnlPct: data.totalPnlPct != null ? Number(data.totalPnlPct) : undefined,
+              totalCost: data.totalCost != null ? Number(data.totalCost) : undefined,
+              totalTrades: data.totalTrades || 0,
+              winRate: data.winRate || 0,
+            } });
             break;
           case 'ai_analysis':
             set({ aiAnalysis: { ...get().aiAnalysis, [data.scope || 'next']: data } });

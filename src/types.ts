@@ -70,10 +70,12 @@ export interface OrderBook {
 
 export interface TradeRecord {
   timestamp: Date;
-  market: string;
+  tokenId: string;
+  market?: string;
   outcome: 'Up' | 'Down';
   side: 'BUY' | 'SELL';
   price: number;
   size: number;
   pnl?: number;
+  costCents?: number; // cost basis in cents for sold quantity
 }
