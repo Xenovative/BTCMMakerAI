@@ -92,7 +92,7 @@ export class Trader {
       const upBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: upTokenId });
       const upBalance = parseFloat(upBalances?.balance || '0') / 1e6;
       
-      if (upBalance >= 1) {
+      if (upBalance >= 0.001) {
         if (!this.positions.has(upTokenId)) {
           const lastBuy = [...this.tradeHistory].reverse().find((t) => t.side === 'BUY' && t.price != null && t.tokenId === upTokenId);
           const seedPrice = lastBuy?.price ?? upPrice;
@@ -111,16 +111,19 @@ export class Trader {
           pos.currentPrice = upPrice;
         }
       } else if (this.positions.has(upTokenId)) {
-        console.log(`[同步] Up 持倉已清空 (on-chain ${upBalance.toFixed(4)})`);
-        this.positions.delete(upTokenId);
-        this.pendingSellOrders.delete(upTokenId);
+        // Only clear when effectively zero to avoid thrashing avgBuyPrice
+        if (upBalance < 0.0001) {
+          console.log(`[同步] Up 持倉已清空 (on-chain ${upBalance.toFixed(6)})`);
+          this.positions.delete(upTokenId);
+          this.pendingSellOrders.delete(upTokenId);
+        }
       }
 
       // 查詢 Down 持倉
       const downBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: downTokenId });
       const downBalance = parseFloat(downBalances?.balance || '0') / 1e6;
       
-      if (downBalance >= 1) {
+      if (downBalance >= 0.001) {
         if (!this.positions.has(downTokenId)) {
           const lastBuy = [...this.tradeHistory].reverse().find((t) => t.side === 'BUY' && t.price != null && t.tokenId === downTokenId);
           const seedPrice = lastBuy?.price ?? downPrice;
@@ -138,9 +141,11 @@ export class Trader {
           pos.currentPrice = downPrice;
         }
       } else if (this.positions.has(downTokenId)) {
-        console.log(`[同步] Down 持倉已清空 (on-chain ${downBalance.toFixed(4)})`);
-        this.positions.delete(downTokenId);
-        this.pendingSellOrders.delete(downTokenId);
+        if (downBalance < 0.0001) {
+          console.log(`[同步] Down 持倉已清空 (on-chain ${downBalance.toFixed(6)})`);
+          this.positions.delete(downTokenId);
+          this.pendingSellOrders.delete(downTokenId);
+        }
       }
     } catch (error: any) {
       console.error('[同步] 查詢持倉失敗:', error?.message);
