@@ -91,7 +91,7 @@ export class Trader {
       const upBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: upTokenId });
       const upBalance = parseFloat(upBalances?.balance || '0') / 1e6;
       
-      if (upBalance >= 0.01) {
+      if (upBalance >= 1) {
         if (!this.positions.has(upTokenId)) {
           // 新發現的持倉（可能是 bot 重啟後）- 用當前價格作為估計
           console.log(`[同步] 發現 Up 持倉: ${upBalance.toFixed(3)} 股 (估計買入價: ${upPrice.toFixed(1)}¢)`);
@@ -118,7 +118,7 @@ export class Trader {
       const downBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: downTokenId });
       const downBalance = parseFloat(downBalances?.balance || '0') / 1e6;
       
-      if (downBalance >= 0.01) {
+      if (downBalance >= 1) {
         if (!this.positions.has(downTokenId)) {
           console.log(`[同步] 發現 Down 持倉: ${downBalance.toFixed(3)} 股 (估計買入價: ${downPrice.toFixed(1)}¢)`);
           this.positions.set(downTokenId, {
