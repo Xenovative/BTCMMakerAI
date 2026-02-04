@@ -6,12 +6,15 @@ export interface BotConfig {
   priceFloor: number;
   priceCeiling: number;
   profitTarget: number;
+  profitTargetPct: number;
   stopLoss: number;
+  stopLossPct: number;
   maxPositionSize: number;
   aiMinPositionSize: number;
   lossStreakCooldownMs: number;
   lossStreakThreshold: number;
   allowCurrentMarketTrading: boolean;
+  combinedPriceCap: number;
   privateKey: string;
   funderAddress: string;
 }
@@ -110,12 +113,15 @@ export const useBotStore = create<BotStore>((set, get) => ({
     priceFloor: 1,
     priceCeiling: 99,
     profitTarget: 2,
+    profitTargetPct: 0.05,
     stopLoss: 5,
+    stopLossPct: 0.05,
     maxPositionSize: 100,
     aiMinPositionSize: 1,
     lossStreakCooldownMs: 120000,
     lossStreakThreshold: 3,
     allowCurrentMarketTrading: true,
+    combinedPriceCap: 0.98,
     privateKey: '',
     funderAddress: '',
   },
@@ -160,7 +166,14 @@ export const useBotStore = create<BotStore>((set, get) => ({
             set({ status: { ...get().status, ...data, uptimeSeconds: data?.uptimeSeconds != null ? Number(data.uptimeSeconds) : get().status.uptimeSeconds } });
             break;
           case 'config':
-            set({ config: { ...get().config, ...data, aiMinPositionSize: data.aiMinPositionSize ?? get().config.aiMinPositionSize } });
+            set({ config: {
+              ...get().config,
+              ...data,
+              aiMinPositionSize: data.aiMinPositionSize ?? get().config.aiMinPositionSize,
+              profitTargetPct: data.profitTargetPct ?? get().config.profitTargetPct,
+              stopLossPct: data.stopLossPct ?? get().config.stopLossPct,
+              combinedPriceCap: data.combinedPriceCap ?? get().config.combinedPriceCap,
+            } });
             break;
           case 'market':
             // Ensure numeric prices and log for debugging

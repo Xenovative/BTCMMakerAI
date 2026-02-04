@@ -607,8 +607,13 @@ wss.on('connection', (ws) => {
       data: {
         paperTrade: config.PAPER_TRADING,
         maxBuyPrice: config.MAX_BUY_PRICE,
+        priceFloor: config.PRICE_FLOOR,
+        priceCeiling: config.PRICE_CEILING,
         profitTarget: config.PROFIT_TARGET,
+        profitTargetPct: config.PROFIT_TARGET_PCT,
         stopLoss: config.STOP_LOSS,
+        stopLossPct: config.STOP_LOSS_PCT,
+        combinedPriceCap: config.COMBINED_PRICE_CAP,
         maxPositionSize: config.MAX_POSITION_SIZE,
         allowCurrentMarketTrading: config.ALLOW_CURRENT_MARKET_TRADING,
         privateKey: '',
@@ -653,11 +658,20 @@ wss.on('connection', (ws) => {
           if (payload.profitTarget) {
             (config as any).PROFIT_TARGET = payload.profitTarget;
           }
+          if (payload.profitTargetPct) {
+            (config as any).PROFIT_TARGET_PCT = payload.profitTargetPct;
+          }
           if (payload.maxPositionSize) {
             (config as any).MAX_POSITION_SIZE = payload.maxPositionSize;
           }
           if (payload.stopLoss) {
             (config as any).STOP_LOSS = payload.stopLoss;
+          }
+          if (payload.stopLossPct) {
+            (config as any).STOP_LOSS_PCT = payload.stopLossPct;
+          }
+          if (payload.combinedPriceCap) {
+            (config as any).COMBINED_PRICE_CAP = payload.combinedPriceCap;
           }
           if (payload.allowCurrentMarketTrading !== undefined) {
             (config as any).ALLOW_CURRENT_MARKET_TRADING = payload.allowCurrentMarketTrading;

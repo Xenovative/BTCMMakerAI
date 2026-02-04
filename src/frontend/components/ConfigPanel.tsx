@@ -157,33 +157,48 @@ export function ConfigPanel() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Limit Sell 差距 (¢)</label>
+            <label className="block text-sm text-gray-400 mb-2">Limit Sell 目標 (%)</label>
             <input
               type="number"
-              step="0.5"
-              min="0.5"
-              max="10"
-              value={localConfig.profitTarget}
-              onChange={(e) => handleChange('profitTarget', parseFloat(e.target.value) || 2)}
+              step="0.1"
+              min="0.1"
+              max="50"
+              value={(localConfig.profitTargetPct ?? 0) * 100}
+              onChange={(e) => handleChange('profitTargetPct', (parseFloat(e.target.value) || 0) / 100)}
               className="w-full bg-gray-800 border border-cyan-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
               disabled={status.running}
             />
-            <p className="text-xs text-gray-600 mt-1">買入後自動掛賣單，價格 = 買入價 + 此值</p>
+            <p className="text-xs text-gray-600 mt-1">買入後自動掛賣單，價格 = 買入價 * (1 + 目標%)</p>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">止損點 (¢)</label>
+            <label className="block text-sm text-gray-400 mb-2">止損點 (%)</label>
             <input
               type="number"
-              step="1"
-              min="1"
-              max="20"
-              value={localConfig.stopLoss}
-              onChange={(e) => handleChange('stopLoss', parseFloat(e.target.value) || 5)}
+              step="0.1"
+              min="0.5"
+              max="50"
+              value={(localConfig.stopLossPct ?? 0) * 100}
+              onChange={(e) => handleChange('stopLossPct', (parseFloat(e.target.value) || 0) / 100)}
               className="w-full bg-gray-800 border border-red-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-red-500 transition-colors"
               disabled={status.running}
             />
-            <p className="text-xs text-gray-600 mt-1">虧損超過此值時自動賣出</p>
+            <p className="text-xs text-gray-600 mt-1">虧損超過此百分比時自動賣出</p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">雙邊價格上限 (總和 %)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="50"
+              max="110"
+              value={(localConfig.combinedPriceCap ?? 1) * 100}
+              onChange={(e) => handleChange('combinedPriceCap', (parseFloat(e.target.value) || 0) / 100)}
+              className="w-full bg-gray-800 border border-yellow-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-yellow-500 transition-colors"
+              disabled={status.running}
+            />
+            <p className="text-xs text-gray-600 mt-1">Only buy when Up+Down is below this percentage cap</p>
           </div>
 
           <div>
