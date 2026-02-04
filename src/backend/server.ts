@@ -339,7 +339,18 @@ async function tick() {
       return age === undefined || age > freshnessLimit;
     });
     if (staleForTrade.length > 0) {
-      console.warn('[Trade] skip this tick: prices not warm for', staleForTrade.join(','), `limit=${freshnessLimit}ms`, 'isNearEnd=', isNearEnd);
+      console.warn('[Trade] prices not warm for', staleForTrade.join(','), `limit=${freshnessLimit}ms`, 'isNearEnd=', isNearEnd, '-> trigger loss exits if any');
+
+      // Even with stale prices, protect downside: force loss exits using last known prices
+      for (const [tokenId, pos] of positions) {
+        if (pos.size <= 0) continue;
+        const loss = pos.avgBuyPrice - pos.currentPrice;
+        if (loss >= config.STOP_LOSS) {
+          console.warn(`[StalePrice LossExit] ${pos.outcome} loss=${loss.toFixed(2)}¢ >= stopLoss=${config.STOP_LOSS}¢, force market sell`);
+          await trader.forceLiquidate(tokenId, pos.outcome, pos.currentPrice);
+          await delay(300);
+        }
+      }
       return;
     }
 

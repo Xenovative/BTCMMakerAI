@@ -93,6 +93,7 @@ IMPORTANT RULES:
 5. Be conservative - only recommend trading when you have reasonable confidence
 6. Position size should scale with confidence (20-100 shares)
 7. Only trade when Up+Down price sum is below ${ (config.COMBINED_PRICE_CAP * 100).toFixed(0) }¢ (combined price cap)
+8. Identify the current leader: whichever side has the higher price is favored to win; reflect this in reasoning and only go contrarian with strong evidence
 
 Respond in JSON format ONLY:
 {
@@ -176,6 +177,7 @@ Up Price: ${state.upPrice.toFixed(2)}¢
 Down Price: ${state.downPrice.toFixed(2)}¢
 Price Sum: ${(state.upPrice + state.downPrice).toFixed(2)}¢ (should be ~100¢)
 Combined Price Cap: ${(config.COMBINED_PRICE_CAP * 100).toFixed(0)}¢ (must be below to buy)
+Leader: ${state.upPrice > state.downPrice ? 'Up' : state.downPrice > state.upPrice ? 'Down' : 'Tie'} (${Math.abs(state.upPrice - state.downPrice).toFixed(2)}¢ gap)
 
 === UP ORDER BOOK ===
 Best Bid: ${(upBestBid * 100).toFixed(2)}¢ | Best Ask: ${(upBestAsk * 100).toFixed(2)}¢

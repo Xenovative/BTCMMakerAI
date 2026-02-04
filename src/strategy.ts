@@ -349,7 +349,7 @@ export class Strategy {
       return null;
     }
 
-    const combinedPriceCents = upPrice + downPrice;
+    const combinedPriceCents = (positions.get(upTokenId)?.currentPrice ?? upPrice) + (positions.get(downTokenId)?.currentPrice ?? downPrice);
     if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
       console.log(`[LLM] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買`);
       return null;
@@ -421,7 +421,7 @@ export class Strategy {
       return null;
     }
 
-    const combinedPriceCents = upPrice + downPrice;
+    const combinedPriceCents = (positions.get(upTokenId)?.currentPrice ?? upPrice) + (positions.get(downTokenId)?.currentPrice ?? downPrice);
     if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
       console.log(`[AI] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買`);
       return null;
@@ -501,7 +501,7 @@ export class Strategy {
         console.log(`[Legacy] 已持有 Down ${downHeld.toFixed(3)} 股，先賣出再買 Up`);
         return null;
       }
-      const combinedPriceCents = upPrice + downPrice;
+      const combinedPriceCents = (positions.get(upTokenId)?.currentPrice ?? upPrice) + (positions.get(downTokenId)?.currentPrice ?? downPrice);
       if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
         console.log(`[Legacy] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買 Up`);
         return null;
