@@ -49,7 +49,32 @@ export function ConfigPanel() {
             />
             <div>
               <span className="text-green-400 font-bold">📝 模擬交易</span>
-              <p className="text-gray-500 text-xs">不使用真實資金</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">每筆成本:</span>
+                  <span className="text-white font-mono ml-2">
+                    ${((localConfig.maxBuyPrice / 100) * localConfig.maxPositionSize).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">目標利潤:</span>
+                  <span className="text-green-400 font-mono ml-2">
+                    +${(((localConfig.maxBuyPrice / 100) * localConfig.maxPositionSize) * localConfig.profitTargetPct).toFixed(2)} (基於倉位成本)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">範例:</span>
+                  <span className="text-cyan-300 font-mono ml-2">
+                    買 {localConfig.maxBuyPrice.toFixed(0)}¢ → 掛賣 {(localConfig.maxBuyPrice * (1 + localConfig.profitTargetPct)).toFixed(0)}¢
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">止損:</span>
+                  <span className="text-red-400 font-mono ml-2">
+                    -{((localConfig.maxBuyPrice / 100) * localConfig.maxPositionSize * localConfig.stopLossPct).toFixed(2)} USD ({(localConfig.stopLossPct * 100).toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
             </div>
           </label>
 

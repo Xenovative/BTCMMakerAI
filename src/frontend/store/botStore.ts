@@ -28,6 +28,7 @@ export interface Position {
   unrealizedPnl: number;
   market?: string;
   returnPct?: number;
+  returnUsd?: number;
 }
 
 export interface Trade {
@@ -207,6 +208,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
                 unrealizedPnl: Number(p.unrealizedPnl) || 0,
                 market: p.market || undefined,
                 returnPct: p.returnPct != null ? Number(p.returnPct) : undefined,
+                returnUsd: p.returnUsd != null ? Number(p.returnUsd) : undefined,
               }));
               console.log('[WS][positions]', parsedPositions);
               set({ positions: parsedPositions });
