@@ -587,6 +587,12 @@ wss.on('connection', (ws) => {
         allowCurrentMarketTrading: config.ALLOW_CURRENT_MARKET_TRADING,
         privateKey: '',
         funderAddress: config.FUNDER_ADDRESS,
+        llmEnabled: config.LLM_ENABLED,
+        llmProvider: config.LLM_PROVIDER,
+        openaiModel: config.OPENAI_MODEL,
+        volcanoModel: config.VOLCANO_MODEL,
+        volcanoBaseUrl: config.VOLCANO_BASE_URL,
+        pollIntervalMs: config.POLL_INTERVAL_MS,
       },
     })
   );
@@ -644,6 +650,30 @@ wss.on('connection', (ws) => {
           }
           if (payload.allowCurrentMarketTrading !== undefined) {
             (config as any).ALLOW_CURRENT_MARKET_TRADING = payload.allowCurrentMarketTrading;
+          }
+          if (payload.llmEnabled !== undefined) {
+            (config as any).LLM_ENABLED = payload.llmEnabled;
+          }
+          if (payload.llmProvider) {
+            (config as any).LLM_PROVIDER = payload.llmProvider;
+          }
+          if (payload.openaiModel) {
+            (config as any).OPENAI_MODEL = payload.openaiModel;
+          }
+          if (payload.openaiApiKey) {
+            (config as any).OPENAI_API_KEY = payload.openaiApiKey;
+          }
+          if (payload.volcanoModel) {
+            (config as any).VOLCANO_MODEL = payload.volcanoModel;
+          }
+          if (payload.volcanoBaseUrl) {
+            (config as any).VOLCANO_BASE_URL = payload.volcanoBaseUrl;
+          }
+          if (payload.volcanoApiKey) {
+            (config as any).VOLCANO_API_KEY = payload.volcanoApiKey;
+          }
+          if (payload.pollIntervalMs) {
+            (config as any).POLL_INTERVAL_MS = payload.pollIntervalMs;
           }
 
           broadcast('status', {
