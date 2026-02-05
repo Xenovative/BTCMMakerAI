@@ -1,10 +1,13 @@
-import { ClobClient, Side } from '@polymarket/clob-client';
+import { ClobClient, OrderType, Side } from '@polymarket/clob-client';
+import fs from 'fs/promises';
+import path from 'path';
 import { Wallet } from 'ethers';
 import { config } from './config.js';
 import type { Position, TradeRecord } from './types.js';
 
-const CLOB_HTTP_URL = 'https://clob.polymarket.com';
-const CHAIN_ID = 137; // Polygon mainnet
+const CLOB_HTTP_URL = config.CLOB_HOST;
+const CHAIN_ID = config.CHAIN_ID;
+const POS_CACHE_PATH = path.join(process.cwd(), 'positions-cache.json');
 
 export interface ApiCredentials {
   apiKey: string;
@@ -21,6 +24,7 @@ export class Trader {
   private pendingBuyOrders: Map<string, { orderId: string; outcome: 'Up' | 'Down' }> = new Map();
   private bracketOrdersPlaced: Set<string> = new Set(); // tokenIds that already got TP/SL orders
   private stopLossWatch: Map<string, { outcome: 'Up' | 'Down'; price: number }> = new Map();
+  private cachedAvgPrices: Map<string, number> = new Map();
 
   // 檢查止損監視（用市價兜底）
   async checkStopLossWatch(prices: Record<string, number>): Promise<void> {
@@ -41,6 +45,8 @@ export class Trader {
       console.log('🧪 Paper trading mode - no real trades will be executed');
       return true;
     }
+
+    await this.loadPriceCache();
 
     if (!config.PRIVATE_KEY) {
       console.error('[交易] 未配置私鑰');
@@ -111,7 +117,8 @@ export class Trader {
       if (upBalance >= 0.001) {
         if (!this.positions.has(upTokenId)) {
           const lastBuy = [...this.tradeHistory].reverse().find((t) => t.side === 'BUY' && t.price != null && t.tokenId === upTokenId);
-          const seedPrice = lastBuy?.price ?? upPrice;
+          const cached = this.cachedAvgPrices.get(upTokenId);
+          const seedPrice = cached ?? lastBuy?.price ?? upPrice;
           console.log(`[同步] 發現 Up 持倉: ${upBalance.toFixed(3)} 股 (估計買入價: ${seedPrice.toFixed(1)}¢)`);
           this.positions.set(upTokenId, {
             tokenId: upTokenId,
@@ -120,6 +127,8 @@ export class Trader {
             avgBuyPrice: seedPrice,
             currentPrice: upPrice,
           });
+          this.cachedAvgPrices.set(upTokenId, seedPrice);
+          void this.savePriceCache();
         } else {
           // 已有持倉記錄 - 只更新數量和現價，保留原始 avgBuyPrice
           const pos = this.positions.get(upTokenId)!;
@@ -143,7 +152,8 @@ export class Trader {
       if (downBalance >= 0.001) {
         if (!this.positions.has(downTokenId)) {
           const lastBuy = [...this.tradeHistory].reverse().find((t) => t.side === 'BUY' && t.price != null && t.tokenId === downTokenId);
-          const seedPrice = lastBuy?.price ?? downPrice;
+          const cached = this.cachedAvgPrices.get(downTokenId);
+          const seedPrice = cached ?? lastBuy?.price ?? downPrice;
           console.log(`[同步] 發現 Down 持倉: ${downBalance.toFixed(3)} 股 (估計買入價: ${seedPrice.toFixed(1)}¢)`);
           this.positions.set(downTokenId, {
             tokenId: downTokenId,
@@ -152,6 +162,8 @@ export class Trader {
             avgBuyPrice: seedPrice,
             currentPrice: downPrice,
           });
+          this.cachedAvgPrices.set(downTokenId, seedPrice);
+          void this.savePriceCache();
         } else {
           const pos = this.positions.get(downTokenId)!;
           pos.size = downBalance;
@@ -163,6 +175,8 @@ export class Trader {
           this.positions.delete(downTokenId);
           this.pendingSellOrders.delete(downTokenId);
           this.bracketOrdersPlaced.delete(downTokenId);
+          this.cachedAvgPrices.delete(downTokenId);
+          void this.savePriceCache();
         }
       }
     } catch (error: any) {
@@ -729,36 +743,34 @@ export class Trader {
     sizeDelta: number,
     price: number
   ): void {
-    const existing = this.positions.get(tokenId);
+    const existing = this.positions.get(tokenId) || {
+      tokenId,
+      outcome,
+      size: 0,
+      avgBuyPrice: 0,
+      currentPrice: 0,
+    };
 
-    if (!existing) {
-      if (sizeDelta > 0) {
-        this.positions.set(tokenId, {
-          tokenId,
-          outcome,
-          size: sizeDelta,
-          avgBuyPrice: price,
-          currentPrice: price,
-        });
-      }
-      return;
+    if (sizeDelta > 0) {
+      // 買入 - 計算新的平均成本
+      existing.avgBuyPrice =
+        (existing.avgBuyPrice * existing.size + price * sizeDelta) / (existing.size + sizeDelta);
+      this.cachedAvgPrices.set(tokenId, existing.avgBuyPrice);
+      void this.savePriceCache();
     }
-
     const newSize = existing.size + sizeDelta;
 
     if (newSize <= 0) {
       this.positions.delete(tokenId);
       this.bracketOrdersPlaced.delete(tokenId);
       this.stopLossWatch.delete(tokenId);
+      this.cachedAvgPrices.delete(tokenId);
+      void this.savePriceCache();
     } else {
-      if (sizeDelta > 0) {
-        // 買入 - 計算新的平均成本
-        existing.avgBuyPrice =
-          (existing.avgBuyPrice * existing.size + price * sizeDelta) / newSize;
-      }
       existing.size = newSize;
       // Do NOT overwrite avgBuyPrice on sells; only update currentPrice snapshot
       existing.currentPrice = price;
+      this.positions.set(tokenId, existing);
     }
   }
 
@@ -885,6 +897,32 @@ export class Trader {
     return this.tradeHistory
       .filter((t) => t.pnl !== undefined)
       .reduce((sum, t) => sum + (t.pnl || 0), 0);
+  }
+
+  private async loadPriceCache(): Promise<void> {
+    try {
+      const data = await fs.readFile(POS_CACHE_PATH, 'utf-8');
+      const json = JSON.parse(data || '{}');
+      for (const [tokenId, avg] of Object.entries(json)) {
+        if (typeof avg === 'number' && Number.isFinite(avg)) {
+          this.cachedAvgPrices.set(tokenId, avg);
+        }
+      }
+    } catch {
+      // ignore missing/invalid cache
+    }
+  }
+
+  private async savePriceCache(): Promise<void> {
+    try {
+      const obj: Record<string, number> = {};
+      for (const [k, v] of this.cachedAvgPrices.entries()) {
+        obj[k] = v;
+      }
+      await fs.writeFile(POS_CACHE_PATH, JSON.stringify(obj), 'utf-8');
+    } catch (err) {
+      console.warn('[Cache] Failed to save positions cache:', (err as Error)?.message || err);
+    }
   }
 
   reset(): void {
