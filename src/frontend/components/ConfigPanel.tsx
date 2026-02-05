@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Key, DollarSign, Hash, Eye, EyeOff, Wallet, Shield, AlertTriangle } from 'lucide-react';
+import { Settings, Key, DollarSign, Hash, Eye, EyeOff, Wallet, Shield, AlertTriangle, Brain, Clock } from 'lucide-react';
 import { useBotStore, BotConfig } from '../store/botStore';
 
 export function ConfigPanel() {
@@ -344,6 +344,120 @@ export function ConfigPanel() {
             <Shield className="w-4 h-4" />
             你的私鑰只會儲存在本地，不會上傳到任何伺服器
           </p>
+        </div>
+      </div>
+
+      {/* LLM Settings */}
+      <div className="cyber-card rounded-xl p-6">
+        <div className="flex items-center gap-2 text-xl font-bold text-white mb-6">
+          <Brain className="w-6 h-6 text-amber-400" />
+          LLM 設定
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <span className="text-white font-medium">啟用 LLM</span>
+                <p className="text-xs text-gray-500 mt-1">關閉後只用規則/AI 分析</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={localConfig.llmEnabled}
+                  onChange={(e) => handleChange('llmEnabled', e.target.checked)}
+                  className="sr-only"
+                  disabled={status.running}
+                />
+                <div className={`w-14 h-7 rounded-full transition-colors ${
+                  localConfig.llmEnabled ? 'bg-green-600' : 'bg-gray-600'
+                }`}>
+                  <div className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full transition-transform ${
+                    localConfig.llmEnabled ? 'translate-x-7' : 'translate-x-0'
+                  }`} />
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">LLM Provider</label>
+            <select
+              value={localConfig.llmProvider}
+              onChange={(e) => handleChange('llmProvider', e.target.value)}
+              className="w-full bg-gray-800 border border-purple-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
+              disabled={status.running}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="volcano">Volcano (Doubao)</option>
+            </select>
+            <p className="text-xs text-gray-600 mt-1">OpenAI 兼容端點</p>
+          </div>
+
+          {localConfig.llmProvider === 'openai' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">OpenAI Model</label>
+              <input
+                type="text"
+                value={localConfig.openaiModel}
+                onChange={(e) => handleChange('openaiModel', e.target.value)}
+                className="w-full bg-gray-800 border border-purple-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                disabled={status.running}
+              />
+              <p className="text-xs text-gray-600 mt-1">例如 gpt-4o, gpt-4o-mini</p>
+            </div>
+          )}
+
+          {localConfig.llmProvider === 'volcano' && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Volcano Model</label>
+                <input
+                  type="text"
+                  value={localConfig.volcanoModel}
+                  onChange={(e) => handleChange('volcanoModel', e.target.value)}
+                  className="w-full bg-gray-800 border border-orange-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-orange-500 transition-colors"
+                  disabled={status.running}
+                />
+                <p className="text-xs text-gray-600 mt-1">例如 volcengine/&lt;endpoint_id&gt;</p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Volcano Base URL</label>
+                <input
+                  type="text"
+                  value={localConfig.volcanoBaseUrl}
+                  onChange={(e) => handleChange('volcanoBaseUrl', e.target.value)}
+                  className="w-full bg-gray-800 border border-orange-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-orange-500 transition-colors"
+                  disabled={status.running}
+                />
+                <p className="text-xs text-gray-600 mt-1">預設 https://ark.cn-beijing.volces.com/api/v3</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Poll Interval */}
+      <div className="cyber-card rounded-xl p-6">
+        <div className="flex items-center gap-2 text-xl font-bold text-white mb-6">
+          <Clock className="w-6 h-6 text-blue-400" />
+          輪詢間隔
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">POLL_INTERVAL_MS</label>
+            <input
+              type="number"
+              step="500"
+              min="2000"
+              value={localConfig.pollIntervalMs}
+              onChange={(e) => handleChange('pollIntervalMs', parseInt(e.target.value) || 10000)}
+              className="w-full bg-gray-800 border border-blue-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
+              disabled={status.running}
+            />
+            <p className="text-xs text-gray-600 mt-1">輪詢市場資料的毫秒間隔</p>
+          </div>
         </div>
       </div>
 

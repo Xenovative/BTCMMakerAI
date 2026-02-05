@@ -18,6 +18,14 @@ export interface BotConfig {
   buyLeaderPrestart: boolean;
   privateKey: string;
   funderAddress: string;
+  llmEnabled: boolean;
+  llmProvider: string;
+  openaiModel: string;
+  openaiApiKey?: string;
+  volcanoModel: string;
+  volcanoBaseUrl: string;
+  volcanoApiKey?: string;
+  pollIntervalMs: number;
 }
 
 export interface Position {
@@ -130,6 +138,12 @@ export const useBotStore = create<BotStore>((set, get) => ({
     buyLeaderPrestart: false,
     privateKey: '',
     funderAddress: '',
+    llmEnabled: true,
+    llmProvider: 'openai',
+    openaiModel: 'gpt-4o-mini',
+    volcanoModel: 'ep-20250318191336-qz8fn',
+    volcanoBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    pollIntervalMs: 10000,
   },
   status: {
     running: false,
@@ -187,6 +201,12 @@ export const useBotStore = create<BotStore>((set, get) => ({
               stopLossPct: data.stopLossPct ?? get().config.stopLossPct,
               combinedPriceCap: data.combinedPriceCap ?? get().config.combinedPriceCap,
               buyLeaderPrestart: data.buyLeaderPrestart ?? get().config.buyLeaderPrestart,
+              llmEnabled: data.llmEnabled ?? get().config.llmEnabled,
+              llmProvider: data.llmProvider ?? get().config.llmProvider,
+              openaiModel: data.openaiModel ?? get().config.openaiModel,
+              volcanoModel: data.volcanoModel ?? get().config.volcanoModel,
+              volcanoBaseUrl: data.volcanoBaseUrl ?? get().config.volcanoBaseUrl,
+              pollIntervalMs: data.pollIntervalMs ?? get().config.pollIntervalMs,
             } });
             break;
           case 'market':

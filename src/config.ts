@@ -62,6 +62,12 @@ export const config = {
   OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini', // gpt-4o, gpt-4o-mini, gpt-4-turbo
   LLM_ENABLED: process.env.LLM_ENABLED !== 'false', // 是否啟用 LLM 分析（默認開啟）
 
+  // Volcano Engine (Doubao) - OpenAI-compatible
+  LLM_PROVIDER: process.env.LLM_PROVIDER || 'openai', // 'openai' | 'volcano'
+  VOLCANO_API_KEY: process.env.VOLCANO_API_KEY || '',
+  VOLCANO_MODEL: process.env.VOLCANO_MODEL || 'ep-20250318191336-qz8fn',
+  VOLCANO_BASE_URL: process.env.VOLCANO_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3',
+
   // Real-time BTC spot feed (RTDS)
   RTDS_ENABLED: process.env.RTDS_ENABLED !== 'false',
   RTDS_WS_URL: process.env.RTDS_WS_URL || '', // default to Binance BTCUSDT trade stream if empty

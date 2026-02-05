@@ -26,7 +26,18 @@ export class LLMAnalyzer {
   private readonly CACHE_TTL_MS = 0;
 
   constructor() {
-    if (config.OPENAI_API_KEY) {
+    // Support OpenAI-compatible providers (OpenAI or Volcano Engine/Doubao)
+    const provider = config.LLM_PROVIDER?.toLowerCase() || 'openai';
+    if (!config.LLM_ENABLED) return;
+
+    if (provider === 'volcano') {
+      if (!config.VOLCANO_API_KEY) return;
+      this.openai = new OpenAI({
+        apiKey: config.VOLCANO_API_KEY,
+        baseURL: config.VOLCANO_BASE_URL, // e.g. https://ark.cn-beijing.volces.com/api/v3
+      });
+    } else {
+      if (!config.OPENAI_API_KEY) return;
       this.openai = new OpenAI({
         apiKey: config.OPENAI_API_KEY,
       });
@@ -37,7 +48,12 @@ export class LLMAnalyzer {
    * 檢查 LLM 是否可用
    */
   isAvailable(): boolean {
-    return !!this.openai && !!config.OPENAI_API_KEY && config.LLM_ENABLED;
+    if (!config.LLM_ENABLED) return false;
+    const provider = config.LLM_PROVIDER?.toLowerCase() || 'openai';
+    if (provider === 'volcano') {
+      return !!this.openai && !!config.VOLCANO_API_KEY;
+    }
+    return !!this.openai && !!config.OPENAI_API_KEY;
   }
 
   /**
@@ -112,7 +128,9 @@ ${marketData}
 Remember: Only recommend trading if you see a clear opportunity. Be specific about why you chose Up or Down.`;
 
     const response = await this.openai.chat.completions.create({
-      model: config.OPENAI_MODEL,
+      model: (config.LLM_PROVIDER?.toLowerCase() === 'volcano'
+        ? config.VOLCANO_MODEL
+        : config.OPENAI_MODEL),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
