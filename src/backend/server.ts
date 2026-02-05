@@ -317,11 +317,13 @@ async function tick() {
     // 當前市場 ID（僅供日誌使用）
     const marketId = state.nextMarket?.conditionId || state.currentMarket?.conditionId || '';
 
-    // 開盤前 10 秒掛出 TP/SL bracket，避免過早掛單（僅 next/pre-start）
-    if (state.timeToStart <= 10_000 && state.timeToStart >= 0) {
+    // 開盤前掛出 TP/SL bracket，避免過早掛單（僅 next/pre-start）
+    if (state.timeToStart <= 12_000 && state.timeToStart >= -2_000) {
+      console.log('[Bracket] window hit timeToStart=%dms positions=%d', state.timeToStart, positions.size);
       for (const [tokenId, pos] of positions) {
         if (pos.size > 0 && !config.PAPER_TRADING) {
-          await trader.placeBracketOrders(tokenId, pos.outcome, pos.avgBuyPrice, pos.currentPrice, state.timeToStart);
+          const placed = await trader.placeBracketOrders(tokenId, pos.outcome, pos.avgBuyPrice, pos.currentPrice, state.timeToStart);
+          console.log('[Bracket] token=%s outcome=%s size=%.2f placed=%s', tokenId, pos.outcome, pos.size, placed);
           await delay(150);
         }
       }
@@ -401,7 +403,7 @@ async function tick() {
       }
     }
 
-    // Broadcast PnL stats
+    // Broadcast PnL stats + wallet balance
     const history = trader.getTradeHistory();
     const sells = history.filter((t) => t.side === 'SELL');
     const totalPnl = sells.reduce((sum, t) => sum + (t.pnl || 0), 0);
@@ -409,6 +411,7 @@ async function tick() {
     const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
     const wins = sells.filter((t) => (t.pnl || 0) > 0).length;
     const totalTrades = sells.length;
+    const walletBalance = await trader.getWalletBalance();
 
     broadcast('pnl', {
       totalPnl,
@@ -416,6 +419,7 @@ async function tick() {
       totalCost,
       totalPnlPct,
       winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
+      walletBalance,
     });
 
     // Update loss streak cooldowns

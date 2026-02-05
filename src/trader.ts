@@ -758,8 +758,8 @@ export class Trader {
   ): Promise<boolean> {
     if (config.PAPER_TRADING || !this.clobClient) return false;
 
-    // 僅在開盤前 10 秒內執行一次（0~10s）
-    if (timeToStartMs > 10_000 || timeToStartMs < 0) return false;
+    // 僅在開盤前小窗執行一次（允許 -2s ~ 12s 容錯）
+    if (timeToStartMs > 12_000 || timeToStartMs < -2_000) return false;
     if (this.bracketOrdersPlaced.has(tokenId)) return true;
 
     try {
@@ -847,6 +847,18 @@ export class Trader {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async getWalletBalance(): Promise<number> {
+    if (config.PAPER_TRADING || !this.clobClient) return 0;
+    try {
+      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'USDC' as any });
+      const balance = parseFloat(resp?.balance || '0') / 1e6;
+      return balance;
+    } catch (e: any) {
+      console.warn('[Wallet] 查詢 USDC 餘額失敗:', e?.message || e);
+      return 0;
+    }
   }
 
   getPositions(): Map<string, Position> {

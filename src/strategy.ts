@@ -159,8 +159,11 @@ export class Strategy {
         if (position.size > 0) {
           const loss = position.avgBuyPrice - position.currentPrice;
           const lossPct = position.avgBuyPrice > 0 ? loss / position.avgBuyPrice : 0;
-          if (lossPct >= config.STOP_LOSS_PCT) {
-            console.log(`[策略] 觸發止損: ${position.outcome} loss=${loss.toFixed(2)}¢ (${(lossPct * 100).toFixed(2)}%) >= stopLossPct=${(config.STOP_LOSS_PCT * 100).toFixed(2)}%`);
+          const pctThreshold = config.STOP_LOSS_PCT * position.avgBuyPrice; // cents
+          const centThreshold = config.STOP_LOSS; // cents
+          const triggerThreshold = Math.min(centThreshold, pctThreshold || Number.POSITIVE_INFINITY);
+          if (loss >= triggerThreshold) {
+            console.log(`[策略] 觸發止損: ${position.outcome} loss=${loss.toFixed(2)}¢ (${(lossPct * 100).toFixed(2)}%) >= threshold=${triggerThreshold.toFixed(2)}¢ (pct=${(config.STOP_LOSS_PCT * 100).toFixed(2)}%, abs=${centThreshold}¢)`);
             signals.push({
               action: 'SELL',
               tokenId,

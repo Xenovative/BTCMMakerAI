@@ -160,6 +160,20 @@ export class MarketFetcher {
     const currentUpToken = currentMarket?.tokens.find(t => t.outcome === 'Up');
     const currentDownToken = currentMarket?.tokens.find(t => t.outcome === 'Down');
 
+    // Collect previous resolved outcomes from past markets (up to last 5)
+    const previousOutcomes: string[] = markets
+      .filter(m => m.closed)
+      .slice(-5)
+      .map(m => {
+        // if outcomePrices available, pick winner by higher price; fallback unknown
+        const up = m.tokens.find(t => t.outcome === 'Up');
+        const down = m.tokens.find(t => t.outcome === 'Down');
+        if (up && down) {
+          return up.price > down.price ? 'Up' : down.price > up.price ? 'Down' : 'Tie';
+        }
+        return 'Unknown';
+      });
+
     return {
       currentMarket,
       nextMarket,
@@ -175,6 +189,7 @@ export class MarketFetcher {
       currentDownPrice: (currentDownToken?.price || 0.5) * 100,
       timeToStart: nextMarket ? new Date(nextMarket.startDate).getTime() - now : 0,
       timeToEnd: currentMarket ? new Date(currentMarket.endDate).getTime() - now : 0,
+      previousOutcomes,
     };
   }
 

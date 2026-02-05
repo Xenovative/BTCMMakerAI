@@ -159,6 +159,26 @@ export class AIAnalyzer {
     const sentimentUp = this.analyzeSentiment(upPriceRt, 'Up', btcMomentum);
     const sentimentDown = this.analyzeSentiment(downPriceRt, 'Down', btcMomentum);
 
+    // 3b. 最近盤結果偏好
+    const prev = state.previousOutcomes || [];
+    if (prev.length > 0) {
+      const window = prev.slice(-5);
+      const upWins = window.filter(o => o === 'Up').length;
+      const downWins = window.filter(o => o === 'Down').length;
+      const bias = (upWins - downWins) / window.length; // -1..1
+      if (bias > 0) {
+        sentimentUp.score += 8 * bias;
+        sentimentDown.score -= 5 * bias;
+        reasons.push(`近期盤勢偏向 Up (${upWins}/${window.length}), 加分 Up`);
+      } else if (bias < 0) {
+        sentimentDown.score += -8 * bias;
+        sentimentUp.score -= -5 * bias;
+        reasons.push(`近期盤勢偏向 Down (${downWins}/${window.length}), 加分 Down`);
+      } else {
+        reasons.push('近期盤勢無明顯偏向');
+      }
+    }
+
     // 4. 時機分析
     const timing = this.analyzeTiming(state);
 

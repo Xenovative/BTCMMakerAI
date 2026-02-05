@@ -112,11 +112,11 @@ export function Dashboard() {
         {/* Total PnL */}
         <div className="cyber-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-gray-500 text-sm">總盈虧</span>
-            <DollarSign className={`w-5 h-5 ${status.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`} />
+            <span className="text-gray-500 text-sm">錢包餘額</span>
+            <DollarSign className="w-5 h-5 text-green-400" />
           </div>
-          <div className={`text-3xl font-bold ${status.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {status.totalPnl >= 0 ? '+' : ''}${(status.totalPnl / 100).toFixed(4)} USDC
+          <div className="text-3xl font-bold text-green-400">
+            ${((status.walletBalance ?? 0)).toFixed(4)} USDC
           </div>
           <div className="text-gray-600 text-xs mt-1">
             {(status.totalPnl >= 0 ? '+' : '') + status.totalPnl.toFixed(2)}¢
@@ -191,8 +191,8 @@ export function Dashboard() {
               <DollarSign className="w-5 h-5 text-green-400" />
               <h3 className="text-lg font-bold text-white">累計盈虧走勢</h3>
             </div>
-            <div className={`text-sm font-mono ${status.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {status.totalPnl >= 0 ? '+' : ''}{(status.totalPnl / 100).toFixed(4)} USDC
+            <div className={`text-sm font-mono text-green-400`}>
+              ${(status.walletBalance ?? 0).toFixed(4)} USDC
             </div>
           </div>
           {renderPnlChart()}

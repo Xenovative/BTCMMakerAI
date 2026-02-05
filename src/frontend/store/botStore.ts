@@ -91,6 +91,7 @@ export interface BotStatus {
   totalTrades: number;
   winRate: number;
   uptimeSeconds?: number;
+  walletBalance?: number;
 }
 
 interface BotStore {
@@ -258,6 +259,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
               totalCost: data.totalCost != null ? Number(data.totalCost) : undefined,
               totalTrades: data.totalTrades || 0,
               winRate: data.winRate || 0,
+              walletBalance: data.walletBalance != null ? Number(data.walletBalance) : get().status.walletBalance,
             } });
             break;
           case 'ai_analysis':

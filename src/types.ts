@@ -61,6 +61,7 @@ export interface MarketState {
   currentDownPrice: number;
   timeToStart: number; // ms until next market starts
   timeToEnd: number; // ms until current market ends
+  previousOutcomes?: string[]; // history of recent outcomes (e.g., ['Up','Down',...])
 }
 
 export interface OrderBook {
