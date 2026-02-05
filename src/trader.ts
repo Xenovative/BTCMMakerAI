@@ -142,6 +142,9 @@ export class Trader {
           this.positions.delete(upTokenId);
           this.pendingSellOrders.delete(upTokenId);
           this.bracketOrdersPlaced.delete(upTokenId);
+          this.stopLossWatch.delete(upTokenId);
+          this.cachedAvgPrices.delete(upTokenId);
+          void this.savePriceCache();
         }
       }
 
@@ -175,6 +178,7 @@ export class Trader {
           this.positions.delete(downTokenId);
           this.pendingSellOrders.delete(downTokenId);
           this.bracketOrdersPlaced.delete(downTokenId);
+          this.stopLossWatch.delete(downTokenId);
           this.cachedAvgPrices.delete(downTokenId);
           void this.savePriceCache();
         }
