@@ -21,10 +21,10 @@ export interface BotConfig {
   llmEnabled: boolean;
   llmProvider: string;
   openaiModel: string;
-  openaiApiKey?: string;
+  openaiApiKey?: string | null;
   volcanoModel: string;
   volcanoBaseUrl: string;
-  volcanoApiKey?: string;
+  volcanoApiKey?: string | null;
   pollIntervalMs: number;
 }
 
@@ -141,8 +141,10 @@ export const useBotStore = create<BotStore>((set, get) => ({
     llmEnabled: true,
     llmProvider: 'openai',
     openaiModel: 'gpt-4o-mini',
+    openaiApiKey: '',
     volcanoModel: 'ep-20250318191336-qz8fn',
     volcanoBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    volcanoApiKey: '',
     pollIntervalMs: 10000,
   },
   status: {
@@ -204,8 +206,10 @@ export const useBotStore = create<BotStore>((set, get) => ({
               llmEnabled: data.llmEnabled ?? get().config.llmEnabled,
               llmProvider: data.llmProvider ?? get().config.llmProvider,
               openaiModel: data.openaiModel ?? get().config.openaiModel,
+              openaiApiKey: data.openaiApiKey ?? get().config.openaiApiKey,
               volcanoModel: data.volcanoModel ?? get().config.volcanoModel,
               volcanoBaseUrl: data.volcanoBaseUrl ?? get().config.volcanoBaseUrl,
+              volcanoApiKey: data.volcanoApiKey ?? get().config.volcanoApiKey,
               pollIntervalMs: data.pollIntervalMs ?? get().config.pollIntervalMs,
             } });
             break;

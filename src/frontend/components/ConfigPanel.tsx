@@ -405,6 +405,17 @@ export function ConfigPanel() {
                 disabled={status.running}
               />
               <p className="text-xs text-gray-600 mt-1">例如 gpt-4o, gpt-4o-mini</p>
+
+              <label className="block text-sm text-gray-400 mt-4 mb-2">OpenAI API Key</label>
+              <input
+                type="password"
+                value={localConfig.openaiApiKey || ''}
+                onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                className="w-full bg-gray-800 border border-purple-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                placeholder="sk-..."
+                disabled={status.running}
+              />
+              <p className="text-xs text-gray-600 mt-1">不會傳到伺服器，僅本地存儲</p>
             </div>
           )}
 
@@ -431,6 +442,18 @@ export function ConfigPanel() {
                   disabled={status.running}
                 />
                 <p className="text-xs text-gray-600 mt-1">預設 https://ark.cn-beijing.volces.com/api/v3</p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Volcano API Key</label>
+                <input
+                  type="password"
+                  value={localConfig.volcanoApiKey || ''}
+                  onChange={(e) => handleChange('volcanoApiKey', e.target.value)}
+                  className="w-full bg-gray-800 border border-orange-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-orange-500 transition-colors"
+                  placeholder="ak-..."
+                  disabled={status.running}
+                />
+                <p className="text-xs text-gray-600 mt-1">OpenAI 兼容金鑰，僅本地存儲</p>
               </div>
             </>
           )}
