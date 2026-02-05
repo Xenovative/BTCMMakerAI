@@ -194,6 +194,7 @@ async function tick() {
         // Refresh live prices after setting from order books
         const updatedLivePrices = livePriceFeed.getPrices();
         strategy.setLivePrices(updatedLivePrices);
+        await trader.checkStopLossWatch(updatedLivePrices);
 
         // Attach BTC spot (RTDS) for analyses
         const btcSpot = rtdsPriceFeed.getLatestPrice();

@@ -20,6 +20,21 @@ export class Trader {
   private pendingSellOrders: Map<string, string> = new Map(); // tokenId -> orderId
   private pendingBuyOrders: Map<string, { orderId: string; outcome: 'Up' | 'Down' }> = new Map();
   private bracketOrdersPlaced: Set<string> = new Set(); // tokenIds that already got TP/SL orders
+  private stopLossWatch: Map<string, { outcome: 'Up' | 'Down'; price: number }> = new Map();
+
+  // 檢查止損監視（用市價兜底）
+  async checkStopLossWatch(prices: Record<string, number>): Promise<void> {
+    for (const [tokenId, watch] of this.stopLossWatch.entries()) {
+      const price = prices[tokenId];
+      if (price == null) continue;
+      const priceCents = price;
+      if (priceCents <= watch.price) {
+        console.warn('[StopWatch] 觸發市價止損 token=%s price=%.2f¢ threshold=%.2f¢', tokenId, priceCents, watch.price);
+        await this.forceLiquidate(tokenId, watch.outcome, priceCents);
+        this.stopLossWatch.delete(tokenId);
+      }
+    }
+  }
 
   async initialize(): Promise<boolean> {
     if (config.PAPER_TRADING) {
@@ -734,6 +749,7 @@ export class Trader {
     if (newSize <= 0) {
       this.positions.delete(tokenId);
       this.bracketOrdersPlaced.delete(tokenId);
+      this.stopLossWatch.delete(tokenId);
     } else {
       if (sizeDelta > 0) {
         // 買入 - 計算新的平均成本
@@ -788,30 +804,26 @@ export class Trader {
       const tpPrice = Math.min(Math.max((avgBuyPrice + config.PROFIT_TARGET) / 100, 0.01), 0.99);
       const slPrice = Math.max((avgBuyPrice - config.STOP_LOSS) / 100, 0.01);
 
-      console.log(`[Bracket] 下單 TP=${tpPrice.toFixed(2)} SL=${slPrice.toFixed(2)} size=${size} (avg=${(avgBuyPrice / 100).toFixed(2)} cur=${(currentPrice / 100).toFixed(2)})`);
+      console.log(`[Bracket] 下單 TP=${tpPrice.toFixed(2)} (watch SL=${slPrice.toFixed(2)}) size=${size} (avg=${(avgBuyPrice / 100).toFixed(2)} cur=${(currentPrice / 100).toFixed(2)})`);
 
-      // 先止損後止盈，確保至少有防守單
-      let slId = '';
-      try {
-        const sl = await this.clobClient.createAndPostOrder({ tokenID: tokenId, price: slPrice, size, side: Side.SELL });
-        slId = sl.orderID || 'sl';
-      } catch (e: any) {
-        console.error('[Bracket] 止損掛單失敗:', e?.message || e);
-      }
-
+      // 只掛止盈單，止損用監視觸發市價/市價限價
       try {
         const tp = await this.clobClient.createAndPostOrder({ tokenID: tokenId, price: tpPrice, size, side: Side.SELL });
         const tpId = tp.orderID || 'tp';
-        this.pendingSellOrders.set(tokenId, `${tpId}|${slId || ''}`);
+        this.pendingSellOrders.set(tokenId, tpId);
       } catch (e: any) {
         console.error('[Bracket] 止盈掛單失敗:', e?.message || e);
-        if (!slId) this.pendingSellOrders.delete(tokenId);
+        this.pendingSellOrders.delete(tokenId);
       }
 
-      // 如果兩張都沒掛成功，改用市價止損兜底
-      if (!slId && !this.pendingSellOrders.get(tokenId)) {
-        console.warn('[Bracket] TP/SL 均掛單失敗，觸發市價止損兜底');
+      // 設定止損監視
+      this.stopLossWatch.set(tokenId, { outcome, price: slPrice * 100 }); // store cents for compare
+
+      // 如果 TP 也沒掛上，仍然兜底市價清倉
+      if (!this.pendingSellOrders.get(tokenId)) {
+        console.warn('[Bracket] TP 掛單失敗，觸發市價兜底');
         await this.forceLiquidate(tokenId, outcome, currentPrice);
+        this.stopLossWatch.delete(tokenId);
       }
 
       this.bracketOrdersPlaced.add(tokenId);
