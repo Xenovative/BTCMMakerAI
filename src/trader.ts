@@ -545,9 +545,8 @@ export class Trader {
         return true;
       }
 
-      // Do not place sell orders immediately; will place TP/SL 10s before start
-      this.pendingSellOrders.delete(tokenId);
-      this.bracketOrdersPlaced.delete(tokenId);
+      // Immediately place TP limit sell at buy time
+      await this.placeLimitSellForPosition(tokenId, outcome, executedPriceCents, executedPriceCents);
       return true;
     } catch (error: any) {
       console.error('Buy order failed:', error?.message || error);
@@ -882,8 +881,8 @@ export class Trader {
     if (config.PAPER_TRADING || !this.clobClient) return 0;
     try {
       const raw = (config.USDC_ADDRESS || '').trim();
-      const usdc = getAddress(raw); // checksum or throws
-      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'ERC20' as any, assetAddress: usdc, asset_address: usdc } as any);
+      const usdc = getAddress(raw).toLowerCase(); // normalize
+      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'ERC20' as any, assetAddress: usdc } as any);
       const balance = parseFloat(resp?.balance || '0') / 1e6;
       return balance;
     } catch (e: any) {
