@@ -481,6 +481,20 @@ export function ConfigPanel() {
             />
             <p className="text-xs text-gray-600 mt-1">輪詢市場資料的毫秒間隔</p>
           </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">LLM_POLL_INTERVAL_MS</label>
+            <input
+              type="number"
+              step="1000"
+              min="5000"
+              value={localConfig.llmPollIntervalMs}
+              onChange={(e) => handleChange('llmPollIntervalMs', parseInt(e.target.value) || 30000)}
+              className="w-full bg-gray-800 border border-amber-500/30 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-amber-500 transition-colors"
+              disabled={status.running}
+            />
+            <p className="text-xs text-gray-600 mt-1">LLM 分析的單獨輪詢間隔 (ms)</p>
+          </div>
         </div>
       </div>
 

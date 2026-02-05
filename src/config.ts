@@ -28,6 +28,7 @@ export const config = {
   LOSS_STREAK_THRESHOLD: Number(process.env.LOSS_STREAK_THRESHOLD) || 3, // consecutive losses to trigger cooldown
   ALLOW_CURRENT_MARKET_TRADING: process.env.ALLOW_CURRENT_MARKET_TRADING !== 'false', // 是否允許盤中交易（默認開啟）
   POLL_INTERVAL_MS: Number(process.env.POLL_INTERVAL_MS) || 10000,
+  LLM_POLL_INTERVAL_MS: Number(process.env.LLM_POLL_INTERVAL_MS) || 30000,
   PAPER_TRADING: process.env.PAPER_TRADING === 'true',
 
   // 滑點保護

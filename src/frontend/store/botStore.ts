@@ -26,6 +26,7 @@ export interface BotConfig {
   volcanoBaseUrl: string;
   volcanoApiKey?: string | null;
   pollIntervalMs: number;
+  llmPollIntervalMs: number;
 }
 
 export interface Position {
@@ -146,6 +147,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
     volcanoBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     volcanoApiKey: '',
     pollIntervalMs: 10000,
+    llmPollIntervalMs: 30000,
   },
   status: {
     running: false,
@@ -211,6 +213,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
               volcanoBaseUrl: data.volcanoBaseUrl ?? get().config.volcanoBaseUrl,
               volcanoApiKey: data.volcanoApiKey ?? get().config.volcanoApiKey,
               pollIntervalMs: data.pollIntervalMs ?? get().config.pollIntervalMs,
+              llmPollIntervalMs: data.llmPollIntervalMs ?? get().config.llmPollIntervalMs,
             } });
             break;
           case 'market':

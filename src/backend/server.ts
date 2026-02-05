@@ -34,6 +34,7 @@ let botStartTime: number | null = null;
 const fetcher = new MarketFetcher();
 const trader = new Trader();
 const strategy = new Strategy();
+let lastLlmRun = 0;
 
 // 購買鎖 - 防止同一市場重複購買
 let buyingInProgress = false;
@@ -228,8 +229,12 @@ async function tick() {
         aiAnalyzer.updateTradeHistory(trader.getTradeHistory());
         
         // Trigger LLM analysis (non-blocking)
+        const now = Date.now();
         if (config.LLM_ENABLED && llmAnalyzer.isAvailable()) {
-          strategy.triggerLLMAnalysis(state, positions);
+          if (now - lastLlmRun >= (config as any).LLM_POLL_INTERVAL_MS) {
+            strategy.triggerLLMAnalysis(state, positions);
+            lastLlmRun = now;
+          }
         }
       } catch (e) {
         console.log('[AI] Failed to fetch order books:', (e as Error).message);
@@ -593,6 +598,7 @@ wss.on('connection', (ws) => {
         volcanoModel: config.VOLCANO_MODEL,
         volcanoBaseUrl: config.VOLCANO_BASE_URL,
         pollIntervalMs: config.POLL_INTERVAL_MS,
+        llmPollIntervalMs: (config as any).LLM_POLL_INTERVAL_MS,
       },
     })
   );
@@ -674,6 +680,9 @@ wss.on('connection', (ws) => {
           }
           if (payload.pollIntervalMs) {
             (config as any).POLL_INTERVAL_MS = payload.pollIntervalMs;
+          }
+          if (payload.llmPollIntervalMs) {
+            (config as any).LLM_POLL_INTERVAL_MS = payload.llmPollIntervalMs;
           }
 
           broadcast('status', {
