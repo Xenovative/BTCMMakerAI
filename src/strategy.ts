@@ -154,8 +154,10 @@ export class Strategy {
 
     const isPreMarket = !state.currentMarket && state.timeToStart > 0;
     if (!isPreMarket) {
-      // 情況 2a: 止損賣出 - 當虧損超過止損點時賣出
+      // 情況 2a: 止損賣出 - 僅對「當前市場」持倉檢查，避免預開盤倉位被提前賣出
       for (const [tokenId, position] of positions) {
+        const isCurrentToken = tokenId === state.currentUpTokenId || tokenId === state.currentDownTokenId;
+        if (!isCurrentToken) continue;
         if (position.size > 0) {
           const loss = position.avgBuyPrice - position.currentPrice;
           const lossPct = position.avgBuyPrice > 0 ? loss / position.avgBuyPrice : 0;
@@ -180,8 +182,10 @@ export class Strategy {
         return signals;
       }
 
-      // 情況 2b: 獲利賣出 - 當價格達到目標時主動賣出
+      // 情況 2b: 獲利賣出 - 僅對當前市場持倉檢查
       for (const [tokenId, position] of positions) {
+        const isCurrentToken = tokenId === state.currentUpTokenId || tokenId === state.currentDownTokenId;
+        if (!isCurrentToken) continue;
         if (position.size > 0) {
           const profit = position.currentPrice - position.avgBuyPrice;
           const profitPct = position.avgBuyPrice > 0 ? profit / position.avgBuyPrice : 0;

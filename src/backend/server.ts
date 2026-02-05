@@ -85,49 +85,23 @@ async function tick() {
     const liveSnapshot = livePriceFeed.getPricesFresh(10_000); // only use prices within 10s
     const liveAll = livePriceFeed.getPrices();
     const ageMap = livePriceFeed.getPriceAges();
-    if (Object.keys(liveSnapshot).length === 0 && Object.keys(liveAll).length > 0) {
-      console.log('[Tick][Prices] stale detected: have %d total but 0 fresh', Object.keys(liveAll).length);
-    }
-    const logPrice = (label: string, tokenId?: string) => {
-      if (!tokenId) return 'n/a';
-      const price = liveSnapshot[tokenId];
-      const all = liveAll[tokenId];
-      return `${label}=${price != null ? price.toFixed(4) : 'stale'} (raw=${all != null ? all.toFixed(4) : 'none'})`;
-    };
-    console.log('[Tick][Prices] fresh keys=%s %s %s %s %s',
-      Object.keys(liveSnapshot).join(',') || 'none',
-      logPrice('up', state.upTokenId),
-      logPrice('down', state.downTokenId),
-      logPrice('curUp', state.currentUpTokenId),
-      logPrice('curDown', state.currentDownTokenId),
-    );
 
     // Auto-resubscribe if any tracked token is stale
-    const staleTokens = tokenIdsToSub.filter((t) => {
-      const age = ageMap[t];
+    const staleTokens = tokenIdsToSub.filter((tokenId) => {
+      const age = ageMap[tokenId];
       return age !== undefined && age > 10_000; // older than 10s
     });
     if (staleTokens.length > 0) {
-      console.warn('[Tick][Prices] stale tokens detected, pruning+resubscribing:', staleTokens.join(','));
       livePriceFeed.prune(tokenIdsToSub);
       livePriceFeed.subscribe(tokenIdsToSub);
       // Seed stale tokens with latest state prices to unblock
-      const seedMap: Array<[string | undefined, number | undefined]> = [
-        [state.upTokenId, state.upPrice],
-        [state.downTokenId, state.downPrice],
-        [state.currentUpTokenId, state.currentUpPrice],
-        [state.currentDownTokenId, state.currentDownPrice],
-      ];
-      seedMap.forEach(([tid, price]) => {
-        if (!tid || price == null) return;
-        if (staleTokens.includes(tid)) {
-          livePriceFeed.setPrice(tid, price, true);
-        }
-      });
+      if (state.upTokenId && state.upPrice != null) livePriceFeed.setPrice(state.upTokenId, state.upPrice / 100, true);
+      if (state.downTokenId && state.downPrice != null) livePriceFeed.setPrice(state.downTokenId, state.downPrice / 100, true);
+      if (state.currentUpTokenId && state.currentUpPrice != null) livePriceFeed.setPrice(state.currentUpTokenId, state.currentUpPrice / 100, true);
+      if (state.currentDownTokenId && state.currentDownPrice != null) livePriceFeed.setPrice(state.currentDownTokenId, state.currentDownPrice / 100, true);
 
       // If everything was stale (no fresh prices), force a WS reconnect
       if (Object.keys(liveSnapshot).length === 0) {
-        console.warn('[Tick][Prices] forcing WS reconnect due to fully stale snapshot');
         livePriceFeed.forceReconnect();
       }
     }
@@ -135,7 +109,6 @@ async function tick() {
     // Force reconnect if any tracked token age exceeds 15s even if snapshot not empty
     const maxAge = Math.max(...tokenIdsToSub.map((t) => ageMap[t] ?? 0), 0);
     if (maxAge > 15_000) {
-      console.warn('[Tick][Prices] max age=%dms > 15000, forcing WS reconnect', maxAge);
       livePriceFeed.forceReconnect();
     }
 
@@ -208,27 +181,18 @@ async function tick() {
         };
         const upMid = getMid(upOrderBook);
         const downMid = getMid(downOrderBook);
-        console.log('[OrderBook Mids] Next: up=%.2f¢ down=%.2f¢ (from bids/asks in $)', upMid, downMid);
         // Use mids only when spread is sane; otherwise keep last/live
         if (upMid !== null && state.upTokenId) livePriceFeed.setPrice(state.upTokenId, upMid, true);
         if (downMid !== null && state.downTokenId) livePriceFeed.setPrice(state.downTokenId, downMid, true);
         if (currentEnabled) {
           const curUpMid = getMid(currentUpOrderBook);
           const curDownMid = getMid(currentDownOrderBook);
-          console.log('[OrderBook Mids] Current: up=%.2f¢ down=%.2f¢', curUpMid, curDownMid);
           if (curUpMid !== null && state.currentUpTokenId) livePriceFeed.setPrice(state.currentUpTokenId, curUpMid, true);
           if (curDownMid !== null && state.currentDownTokenId) livePriceFeed.setPrice(state.currentDownTokenId, curDownMid, true);
         }
 
         // Refresh live prices after setting from order books
         const updatedLivePrices = livePriceFeed.getPrices();
-        const priceKeys = Object.keys(updatedLivePrices);
-        console.log('[Live Prices] Feed has %d prices. Looking for up=%s down=%s', 
-          priceKeys.length, state.upTokenId, state.downTokenId);
-        if (priceKeys.length > 0 && priceKeys.length < 10) {
-          console.log('[Live Prices] Keys:', priceKeys.join(', '));
-          console.log('[Live Prices] Values:', Object.values(updatedLivePrices).map(v => v.toFixed(2)).join(', '));
-        }
         strategy.setLivePrices(updatedLivePrices);
 
         // Attach BTC spot (RTDS) for analyses
