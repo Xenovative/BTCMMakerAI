@@ -226,6 +226,31 @@ export function ConfigPanel() {
             <p className="text-xs text-gray-600 mt-1">Only buy when Up+Down is below this percentage cap</p>
           </div>
 
+          <div className="mt-2 md:mt-0 p-4 bg-gray-800/50 rounded-lg border border-purple-700/40 col-span-1 md:col-span-3">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <span className="text-white font-medium">Buy Market Leader (Pre-start)</span>
+                <p className="text-xs text-gray-500 mt-1">開盤前若一方價格高出 5-8¢，允許直接買入領先方並略過雙邊價格上限</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={localConfig.buyLeaderPrestart}
+                  onChange={(e) => handleChange('buyLeaderPrestart', e.target.checked)}
+                  className="sr-only"
+                  disabled={status.running}
+                />
+                <div className={`w-14 h-7 rounded-full transition-colors ${
+                  localConfig.buyLeaderPrestart ? 'bg-green-600' : 'bg-gray-600'
+                }`}>
+                  <div className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full transition-transform ${
+                    localConfig.buyLeaderPrestart ? 'translate-x-7' : 'translate-x-0'
+                  }`} />
+                </div>
+              </div>
+            </label>
+          </div>
+
           <div>
             <label className="block text-sm text-gray-400 mb-2 flex items-center gap-1">
               <Hash className="w-4 h-4" />

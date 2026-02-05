@@ -15,6 +15,7 @@ export interface BotConfig {
   lossStreakThreshold: number;
   allowCurrentMarketTrading: boolean;
   combinedPriceCap: number;
+  buyLeaderPrestart: boolean;
   privateKey: string;
   funderAddress: string;
 }
@@ -125,6 +126,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
     lossStreakThreshold: 3,
     allowCurrentMarketTrading: true,
     combinedPriceCap: 0.98,
+    buyLeaderPrestart: false,
     privateKey: '',
     funderAddress: '',
   },
@@ -183,6 +185,7 @@ export const useBotStore = create<BotStore>((set, get) => ({
               profitTargetPct: data.profitTargetPct ?? get().config.profitTargetPct,
               stopLossPct: data.stopLossPct ?? get().config.stopLossPct,
               combinedPriceCap: data.combinedPriceCap ?? get().config.combinedPriceCap,
+              buyLeaderPrestart: data.buyLeaderPrestart ?? get().config.buyLeaderPrestart,
             } });
             break;
           case 'market':
