@@ -2,6 +2,7 @@ import { ClobClient, OrderType, Side } from '@polymarket/clob-client';
 import fs from 'fs/promises';
 import path from 'path';
 import { Wallet } from 'ethers';
+import { getAddress } from 'ethers/lib/utils.js';
 import { config } from './config.js';
 import type { Position, TradeRecord } from './types.js';
 
@@ -880,7 +881,8 @@ export class Trader {
   async getWalletBalance(): Promise<number> {
     if (config.PAPER_TRADING || !this.clobClient) return 0;
     try {
-      const usdc = (config.USDC_ADDRESS || '').trim().toLowerCase();
+      const raw = (config.USDC_ADDRESS || '').trim();
+      const usdc = getAddress(raw); // checksum or throws
       const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'ERC20' as any, assetAddress: usdc, asset_address: usdc } as any);
       const balance = parseFloat(resp?.balance || '0') / 1e6;
       return balance;
