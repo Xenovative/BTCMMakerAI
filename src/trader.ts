@@ -19,6 +19,7 @@ export class Trader {
   private tradeHistory: TradeRecord[] = [];
   private pendingSellOrders: Map<string, string> = new Map(); // tokenId -> orderId
   private pendingBuyOrders: Map<string, { orderId: string; outcome: 'Up' | 'Down' }> = new Map();
+  private bracketOrdersPlaced: Set<string> = new Set(); // tokenIds that already got TP/SL orders
 
   async initialize(): Promise<boolean> {
     if (config.PAPER_TRADING) {
@@ -116,6 +117,7 @@ export class Trader {
           console.log(`[同步] Up 持倉已清空 (on-chain ${upBalance.toFixed(6)})`);
           this.positions.delete(upTokenId);
           this.pendingSellOrders.delete(upTokenId);
+          this.bracketOrdersPlaced.delete(upTokenId);
         }
       }
 
@@ -145,6 +147,7 @@ export class Trader {
           console.log(`[同步] Down 持倉已清空 (on-chain ${downBalance.toFixed(6)})`);
           this.positions.delete(downTokenId);
           this.pendingSellOrders.delete(downTokenId);
+          this.bracketOrdersPlaced.delete(downTokenId);
         }
       }
     } catch (error: any) {
@@ -396,7 +399,7 @@ export class Trader {
       }
     }
 
-    const priceDecimal = price / 100; // cents to decimal
+    const priceDecimal = price / 100;
     const targetSellPrice = price + config.PROFIT_TARGET; // 買入價 + 差距值
     const targetSellPriceDecimal = targetSellPrice / 100;
 
@@ -508,22 +511,9 @@ export class Trader {
         return true;
       }
 
-      // 3. 掛 Limit Sell 訂單
-      try {
-        const sellResponse = await this.clobClient.createAndPostOrder({
-          tokenID: tokenId,
-          price: targetSellPriceDecimal,
-          size: actualSize,
-          side: Side.SELL,
-        });
-        console.log(`📌 LIMIT SELL order placed: ${sellResponse.orderID} @ ${targetSellPriceDecimal.toFixed(2)} (+${config.PROFIT_TARGET}¢) x ${actualSize}`);
-        this.pendingSellOrders.set(tokenId, sellResponse.orderID || '');
-      } catch (sellError: any) {
-        console.error('Failed to place limit sell order:', sellError?.message || sellError);
-        // Limit Sell 失敗，清除 pending 標記讓下一個 tick 重試
-        this.pendingSellOrders.delete(tokenId);
-      }
-
+      // Do not place sell orders immediately; will place TP/SL 10s before start
+      this.pendingSellOrders.delete(tokenId);
+      this.bracketOrdersPlaced.delete(tokenId);
       return true;
     } catch (error: any) {
       console.error('Buy order failed:', error?.message || error);
@@ -743,6 +733,7 @@ export class Trader {
 
     if (newSize <= 0) {
       this.positions.delete(tokenId);
+      this.bracketOrdersPlaced.delete(tokenId);
     } else {
       if (sizeDelta > 0) {
         // 買入 - 計算新的平均成本
@@ -750,7 +741,77 @@ export class Trader {
           (existing.avgBuyPrice * existing.size + price * sizeDelta) / newSize;
       }
       existing.size = newSize;
+      // Do NOT overwrite avgBuyPrice on sells; only update currentPrice snapshot
       existing.currentPrice = price;
+    }
+  }
+
+  /**
+   * 在開盤前 10 秒掛出止盈/止損兩張賣單（精確出口）
+   */
+  async placeBracketOrders(
+    tokenId: string,
+    outcome: 'Up' | 'Down',
+    avgBuyPrice: number,
+    currentPrice: number,
+    timeToStartMs: number
+  ): Promise<boolean> {
+    if (config.PAPER_TRADING || !this.clobClient) return false;
+
+    // 僅在開盤前 10 秒內執行一次
+    if (timeToStartMs > 10_000 || timeToStartMs < 0) return false;
+    if (this.bracketOrdersPlaced.has(tokenId)) return true;
+
+    try {
+      const balances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+      if (!balances) return false;
+
+      const rawBalance = parseFloat(balances.balance || '0') / 1e6;
+      let rawAllowance = parseFloat(balances.allowance || '0') / 1e6;
+      if (rawAllowance < 0.1 && rawBalance > 0.1) {
+        try {
+          await this.clobClient.updateBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+          await this.sleep(500);
+          const newBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
+          rawAllowance = parseFloat(newBalances?.allowance || '0') / 1e6;
+        } catch {}
+        if (rawAllowance < 0.1) rawAllowance = rawBalance;
+      }
+
+      const size = rawBalance > 0.05 ? Math.floor(rawBalance * 10) / 10 : 0;
+      if (size <= 0 || size < 5) {
+        console.warn(`[Bracket] 可賣數量 ${size.toFixed(1)} 太小，跳過`);
+        return false;
+      }
+
+      const tpPrice = Math.min(Math.max((avgBuyPrice + config.PROFIT_TARGET) / 100, 0.01), 0.99);
+      const slPrice = Math.max((avgBuyPrice - config.STOP_LOSS) / 100, 0.01);
+
+      console.log(`[Bracket] 下單 TP=${tpPrice.toFixed(2)} SL=${slPrice.toFixed(2)} size=${size} (avg=${(avgBuyPrice / 100).toFixed(2)} cur=${(currentPrice / 100).toFixed(2)})`);
+
+      // 先止損後止盈，確保至少有防守單
+      let slId = '';
+      try {
+        const sl = await this.clobClient.createAndPostOrder({ tokenID: tokenId, price: slPrice, size, side: Side.SELL });
+        slId = sl.orderID || 'sl';
+      } catch (e: any) {
+        console.error('[Bracket] 止損掛單失敗:', e?.message || e);
+      }
+
+      try {
+        const tp = await this.clobClient.createAndPostOrder({ tokenID: tokenId, price: tpPrice, size, side: Side.SELL });
+        const tpId = tp.orderID || 'tp';
+        this.pendingSellOrders.set(tokenId, tpId || slId || '');
+      } catch (e: any) {
+        console.error('[Bracket] 止盈掛單失敗:', e?.message || e);
+        if (!slId) this.pendingSellOrders.delete(tokenId);
+      }
+
+      this.bracketOrdersPlaced.add(tokenId);
+      return true;
+    } catch (error: any) {
+      console.error('[Bracket] 下單失敗:', error?.message || error);
+      return false;
     }
   }
 
