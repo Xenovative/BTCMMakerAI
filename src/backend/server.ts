@@ -67,8 +67,8 @@ async function tick() {
       return;
     }
     
-    console.log(`[Tick] Up: ${state.upPrice.toFixed(1)}¢, Down: ${state.downPrice.toFixed(1)}¢, timeToStart: ${Math.round(state.timeToStart/1000)}s`);
-    console.log('[Tick] Tokens next(up/down)=%s/%s current(up/down)=%s/%s', state.upTokenId, state.downTokenId, state.currentUpTokenId, state.currentDownTokenId);
+    // console.log(`[Tick] Up: ${state.upPrice.toFixed(1)}¢, Down: ${state.downPrice.toFixed(1)}¢, timeToStart: ${Math.round(state.timeToStart/1000)}s`);
+    // console.log('[Tick] Tokens next(up/down)=%s/%s current(up/down)=%s/%s', state.upTokenId, state.downTokenId, state.currentUpTokenId, state.currentDownTokenId);
 
     // Live price feed subscription
     const tokenIdsToSub: string[] = [];
