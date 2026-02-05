@@ -463,17 +463,12 @@ async function tick() {
       for (const scope of scopes) {
         const llmAnalysis = strategy.getLastLLMAnalysis(scope);
         if (llmAnalysis) {
-          broadcast('llm_analysis', {
-            scope,
-            shouldTrade: llmAnalysis.shouldTrade,
-            recommendedOutcome: llmAnalysis.recommendedOutcome,
-            confidence: llmAnalysis.confidence,
-            recommendedSize: llmAnalysis.recommendedSize,
-            reasoning: llmAnalysis.reasoning,
-            marketSummary: llmAnalysis.marketSummary,
-          });
+          broadcast('llm_analysis', { scope, ...llmAnalysis });
         }
       }
+    } else {
+      // Clear cached outputs to avoid stale broadcasts when disabled
+      strategy.clearLLMAnalysis();
     }
   } catch (error) {
     console.error('[Bot] Tick error:', error);

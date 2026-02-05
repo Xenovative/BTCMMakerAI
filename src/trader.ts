@@ -852,8 +852,8 @@ export class Trader {
   async getWalletBalance(): Promise<number> {
     if (config.PAPER_TRADING || !this.clobClient) return 0;
     try {
-      const usdcAddr = config.USDC_ADDRESS.toLowerCase();
-      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'ERC20' as any, assetAddress: usdcAddr, asset_address: usdcAddr } as any);
+      // Polymarket API expects native USDC symbol for balances; address variants can fail signature validation.
+      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'USDC' as any });
       const balance = parseFloat(resp?.balance || '0') / 1e6;
       return balance;
     } catch (e: any) {

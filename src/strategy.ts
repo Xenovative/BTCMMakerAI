@@ -293,6 +293,11 @@ export class Strategy {
     return this.lastLLMAnalysis[scope];
   }
 
+  clearLLMAnalysis(): void {
+    this.lastLLMAnalysis.next = null;
+    this.lastLLMAnalysis.current = null;
+  }
+
   /**
    * 預先觸發 LLM 分析（非阻塞）
    */

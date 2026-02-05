@@ -126,7 +126,6 @@ export class LivePriceFeed {
       if (!Number.isNaN(price)) {
         const priceCents = price < 5 ? price * 100 : price;
         if (priceCents > 0.5 && priceCents < 99.5) {
-          console.log('[LivePriceFeed] set from trade price token=%s raw=%s cents=%.4f', tokenId, priceVal, priceCents);
           this.setPrice(tokenId, priceCents, true);
           return;
         }
@@ -154,7 +153,6 @@ export class LivePriceFeed {
 
     const mid = (bidNum + askNum) / 2;
     const priceCents = mid < 5 ? mid * 100 : mid;
-    console.log('[LivePriceFeed] set from mid token=%s bid=%.4f ask=%.4f cents=%.4f spread=%.4f', tokenId, bidNum, askNum, priceCents, spreadCents);
     this.setPrice(tokenId, priceCents, true);
   }
 
@@ -224,21 +222,9 @@ export class LivePriceFeed {
       }
     }
     const total = Object.keys(this.prices).length;
-    console.log(
-      '[LivePriceFeed] freshness maxAge=%dms total=%d fresh=%d stale=%d ageRange=%d-%dms keys=%s%s',
-      maxAgeMs,
-      total,
-      freshKeys.length,
-      staleCount,
-      Number.isFinite(minAge) ? minAge : 0,
-      maxAge,
-      freshKeys.slice(0, 10).join(',') || 'none',
-      staleDetails.length > 0 ? ` staleDetails=${staleDetails.slice(0, 5).join(';')}` : '',
-    );
 
     // Watchdog: if any price is very stale, force reconnect and resubscribe
     if (staleCount > 0 && maxAge > maxAgeMs * 2) {
-      console.warn('[LivePriceFeed] stale prices detected, forcing reconnect/resubscribe');
       const tokens = Array.from(this.subscribedTokens);
       this.forceReconnect();
       if (tokens.length > 0) {
@@ -258,17 +244,6 @@ export class LivePriceFeed {
       if (current !== undefined && Math.abs(current - clamped) < 0.01) return;
     }
     const prev = this.prices[tokenId];
-    console.log(
-      '[LivePriceFeed] setPrice token=%s input=%.4f clamped=%.4f prev=%s force=%s ageMs=%s',
-      tokenId,
-      priceCents,
-      clamped,
-      prev != null ? prev.toFixed(4) : 'none',
-      force,
-      prev != null && this.priceTimestamps[tokenId]
-        ? (Date.now() - this.priceTimestamps[tokenId]).toFixed(0)
-        : 'n/a',
-    );
     this.prices[tokenId] = clamped;
     this.priceTimestamps[tokenId] = Date.now();
   }
