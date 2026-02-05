@@ -426,8 +426,16 @@ export class Strategy {
       return null;
     }
 
+    // Combined cap guard (skip only if leader pre-start override below)
     const combinedPriceCents = (positions.get(upTokenId)?.currentPrice ?? upPrice) + (positions.get(downTokenId)?.currentPrice ?? downPrice);
-    if (combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
+
+    // Leader pre-start override: only for next market, gap 5-8¢, toggle on
+    const isPreStart = scope === 'next' && state.timeToStart > 0;
+    const priceGap = Math.abs(upPrice - downPrice);
+    const leaderOutcome: 'Up' | 'Down' | null = upPrice > downPrice ? 'Up' : downPrice > upPrice ? 'Down' : null;
+    const leaderOverride = config.BUY_LEADER_PRESTART && isPreStart && leaderOutcome && priceGap >= 5 && priceGap <= 8;
+
+    if (!leaderOverride && combinedPriceCents >= config.COMBINED_PRICE_CAP * 100) {
       console.log(`[AI] 雙邊價格過高 up+down=${combinedPriceCents.toFixed(1)}¢ >= cap ${config.COMBINED_PRICE_CAP * 100}¢，不買`);
       return null;
     }
@@ -440,6 +448,21 @@ export class Strategy {
     }
 
     const finalSize = Math.min(analysis.recommendedSize, remainingCap);
+
+    // If leader override, force buy leader outcome regardless of AI pick, bypass combined cap
+    if (leaderOverride) {
+      const tokenIdLeader = leaderOutcome === 'Up' ? upTokenId : downTokenId;
+      const priceLeader = leaderOutcome === 'Up' ? upPrice : downPrice;
+      console.log(`[AI][LeaderOverride] Gap=${priceGap.toFixed(1)}¢ (${leaderOutcome}) pre-start -> 買入領先方 (忽略 combined cap)`);
+      return {
+        action: 'BUY',
+        tokenId: tokenIdLeader,
+        outcome: leaderOutcome,
+        price: priceLeader,
+        size: finalSize,
+        reason: `[LeaderOverride] Pre-start leader ${leaderOutcome} gap=${priceGap.toFixed(1)}¢ (cap bypass)`,
+      };
+    }
 
     return {
       action: 'BUY',

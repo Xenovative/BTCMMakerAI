@@ -758,7 +758,7 @@ export class Trader {
   ): Promise<boolean> {
     if (config.PAPER_TRADING || !this.clobClient) return false;
 
-    // 僅在開盤前 10 秒內執行一次
+    // 僅在開盤前 10 秒內執行一次（0~10s）
     if (timeToStartMs > 10_000 || timeToStartMs < 0) return false;
     if (this.bracketOrdersPlaced.has(tokenId)) return true;
 
@@ -768,17 +768,18 @@ export class Trader {
 
       const rawBalance = parseFloat(balances.balance || '0') / 1e6;
       let rawAllowance = parseFloat(balances.allowance || '0') / 1e6;
-      if (rawAllowance < 0.1 && rawBalance > 0.1) {
+      if (rawAllowance < rawBalance) {
         try {
           await this.clobClient.updateBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
-          await this.sleep(500);
+          await this.sleep(400);
           const newBalances = await this.clobClient.getBalanceAllowance({ asset_type: 'CONDITIONAL' as any, token_id: tokenId });
           rawAllowance = parseFloat(newBalances?.allowance || '0') / 1e6;
-        } catch {}
-        if (rawAllowance < 0.1) rawAllowance = rawBalance;
+        } catch (e: any) {
+          console.warn('[Bracket] approve failed:', e?.message || e);
+        }
       }
 
-      const size = rawBalance > 0.05 ? Math.floor(rawBalance * 10) / 10 : 0;
+      const size = rawAllowance > 0.05 ? Math.floor(rawAllowance * 10) / 10 : 0;
       if (size <= 0 || size < 5) {
         console.warn(`[Bracket] 可賣數量 ${size.toFixed(1)} 太小，跳過`);
         return false;
@@ -801,10 +802,16 @@ export class Trader {
       try {
         const tp = await this.clobClient.createAndPostOrder({ tokenID: tokenId, price: tpPrice, size, side: Side.SELL });
         const tpId = tp.orderID || 'tp';
-        this.pendingSellOrders.set(tokenId, tpId || slId || '');
+        this.pendingSellOrders.set(tokenId, `${tpId}|${slId || ''}`);
       } catch (e: any) {
         console.error('[Bracket] 止盈掛單失敗:', e?.message || e);
         if (!slId) this.pendingSellOrders.delete(tokenId);
+      }
+
+      // 如果兩張都沒掛成功，改用市價止損兜底
+      if (!slId && !this.pendingSellOrders.get(tokenId)) {
+        console.warn('[Bracket] TP/SL 均掛單失敗，觸發市價止損兜底');
+        await this.forceLiquidate(tokenId, outcome, currentPrice);
       }
 
       this.bracketOrdersPlaced.add(tokenId);

@@ -18,6 +18,7 @@ export const config = {
   PROFIT_TARGET: Number(process.env.PROFIT_TARGET) || 2, // cents
   PROFIT_TARGET_PCT: Number(process.env.PROFIT_TARGET_PCT) || 0.05, // 5% gain target
   COMBINED_PRICE_CAP: Number(process.env.COMBINED_PRICE_CAP) || 0.98, // e.g. 0.96 means up+down < 0.96
+  BUY_LEADER_PRESTART: process.env.BUY_LEADER_PRESTART === 'true', // 在開盤前，若有明顯領先者則買入
   STOP_LOSS: Number(process.env.STOP_LOSS) || 5, // cents - 止損點（虧損超過此值時賣出）
   STOP_LOSS_PCT: Number(process.env.STOP_LOSS_PCT) || 0.05, // 5% loss cap
   LOSS_LIMIT_CENTS: Number(process.env.LOSS_LIMIT_CENTS) || 0, // 總盈虧達到此虧損上限時停止機器人（0=關閉）

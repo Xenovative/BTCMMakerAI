@@ -317,16 +317,12 @@ async function tick() {
     // 當前市場 ID（僅供日誌使用）
     const marketId = state.nextMarket?.conditionId || state.currentMarket?.conditionId || '';
 
-    // 檢查現有持倉是否需要補掛 Limit Sell 或清理剩餘
-    for (const [tokenId, pos] of positions) {
-      if (pos.size > 0 && !config.PAPER_TRADING) {
-        // 先嘗試補掛 Limit Sell
-        await trader.placeLimitSellForPosition(tokenId, pos.outcome, pos.avgBuyPrice, pos.currentPrice);
-        await delay(300);
-        // 清理極小剩餘（< 0.5 股），避免誤清倉
-        if (pos.size < 0.5) {
-          await trader.marketSellRemainder(tokenId, pos.outcome, pos.currentPrice, 'tiny_remainder');
-          await delay(300);
+    // 開盤前 10 秒掛出 TP/SL bracket，避免過早掛單（僅 next/pre-start）
+    if (state.timeToStart <= 10_000 && state.timeToStart >= 0) {
+      for (const [tokenId, pos] of positions) {
+        if (pos.size > 0 && !config.PAPER_TRADING) {
+          await trader.placeBracketOrders(tokenId, pos.outcome, pos.avgBuyPrice, pos.currentPrice, state.timeToStart);
+          await delay(150);
         }
       }
     }
