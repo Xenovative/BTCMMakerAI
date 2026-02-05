@@ -852,7 +852,7 @@ export class Trader {
   async getWalletBalance(): Promise<number> {
     if (config.PAPER_TRADING || !this.clobClient) return 0;
     try {
-      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'USDC' as any });
+      const resp: any = await this.clobClient.getBalanceAllowance({ asset_type: 'ERC20' as any, assetAddress: config.USDC_ADDRESS } as any);
       const balance = parseFloat(resp?.balance || '0') / 1e6;
       return balance;
     } catch (e: any) {

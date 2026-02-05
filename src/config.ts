@@ -10,6 +10,7 @@ export const config = {
   // Wallet
   PRIVATE_KEY: process.env.PRIVATE_KEY || '',
   FUNDER_ADDRESS: process.env.FUNDER_ADDRESS || '', // Polymarket proxy wallet address
+  USDC_ADDRESS: process.env.USDC_ADDRESS || '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // Polygon USDC
 
   // Trading parameters
   MAX_BUY_PRICE: Number(process.env.MAX_BUY_PRICE) || 55, // cents (更寬鬆)
