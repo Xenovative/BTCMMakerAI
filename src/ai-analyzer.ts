@@ -179,6 +179,22 @@ export class AIAnalyzer {
       }
     }
 
+    // 3c. 當前盤前價差領先方偏好
+    const priceGap = Math.abs(upPriceRt - downPriceRt);
+    const leader: 'Up' | 'Down' | null = upPriceRt > downPriceRt ? 'Up' : downPriceRt > upPriceRt ? 'Down' : null;
+    if (leader && priceGap >= 5 && priceGap <= 12) {
+      const gapBias = Math.min(priceGap, 12) / 12; // 0..1
+      if (leader === 'Up') {
+        sentimentUp.score += 10 * gapBias;
+        sentimentDown.score -= 6 * gapBias;
+        reasons.push(`盤前領先: Up 高於 Down ${priceGap.toFixed(1)}¢，偏向 Up`);
+      } else {
+        sentimentDown.score += 10 * gapBias;
+        sentimentUp.score -= 6 * gapBias;
+        reasons.push(`盤前領先: Down 高於 Up ${priceGap.toFixed(1)}¢，偏向 Down`);
+      }
+    }
+
     // 4. 時機分析
     const timing = this.analyzeTiming(state);
 
