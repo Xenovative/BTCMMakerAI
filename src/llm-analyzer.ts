@@ -140,6 +140,10 @@ Remember: Only recommend trading if you see a clear opportunity. Be specific abo
       response_format: { type: 'json_object' },
     });
 
+    console.log('[LLM][Provider]', config.LLM_PROVIDER || 'openai');
+    console.log('[LLM][Model]', config.LLM_PROVIDER?.toLowerCase() === 'volcano' ? config.VOLCANO_MODEL : config.OPENAI_MODEL);
+    console.log('[LLM][Raw]', JSON.stringify(response.choices?.[0] ?? {}, null, 2));
+
     const content = response.choices[0]?.message?.content;
     if (!content) {
       return this.getDefaultAnalysis('LLM 返回空響應');
